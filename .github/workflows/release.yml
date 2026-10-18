@@ -1,0 +1,21 @@
+name: Release
+
+# Runs when a v* tag is pushed, so a tag that doesn't match manifest.json goes
+# red before a release is published from it.
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Manifest version must match the release tag
+        run: |
+          manifest_version=$(python3 -c "import json; print(json.load(open('custom_components/printlog/manifest.json'))['version'])")
+          tag_version="${GITHUB_REF_NAME#v}"
+          if [ "$manifest_version" != "$tag_version" ]; then
+            echo "manifest.json version $manifest_version does not match tag $GITHUB_REF_NAME"
+            exit 1
+          fi

@@ -1,0 +1,577 @@
+# serializer version: 1
+# name: test_binary_sensors_full_snapshot[binary_sensor.printer_102_connection-entry]
+  EntityRegistryEntrySnapshot({
+    'aliases': list([
+      None,
+    ]),
+    'area_id': None,
+    'capabilities': None,
+    'config_entry_id': <ANY>,
+    'config_subentry_id': <ANY>,
+    'device_class': None,
+    'device_id': <ANY>,
+    'disabled_by': None,
+    'domain': 'binary_sensor',
+    'entity_category': None,
+    'entity_id': 'binary_sensor.printer_102_connection',
+    'has_entity_name': True,
+    'hidden_by': None,
+    'icon': None,
+    'id': <ANY>,
+    'labels': set({
+    }),
+    'name': None,
+    'object_id_base': 'Connection',
+    'options': dict({
+    }),
+    'original_device_class': <BinarySensorDeviceClass.CONNECTIVITY: 'connectivity'>,
+    'original_icon': None,
+    'original_name': 'Connection',
+    'platform': 'printlog',
+    'previous_unique_id': None,
+    'suggested_object_id': None,
+    'supported_features': 0,
+    'translation_key': 'connection',
+    'unique_id': 'api.3dprintlog.com:42:printer:102:connection',
+    'unit_of_measurement': None,
+  })
+# ---
+# name: test_binary_sensors_full_snapshot[binary_sensor.printer_102_connection-state]
+  StateSnapshot({
+    'attributes': ReadOnlyDict({
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'connectivity',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Printer 102 Connection',
+    }),
+    'context': <ANY>,
+    'entity_id': 'binary_sensor.printer_102_connection',
+    'last_changed': <ANY>,
+    'last_reported': <ANY>,
+    'last_updated': <ANY>,
+    'state': 'unknown',
+  })
+# ---
+# name: test_binary_sensors_full_snapshot[binary_sensor.printer_102_maintenance_due-entry]
+  EntityRegistryEntrySnapshot({
+    'aliases': list([
+      None,
+    ]),
+    'area_id': None,
+    'capabilities': None,
+    'config_entry_id': <ANY>,
+    'config_subentry_id': <ANY>,
+    'device_class': None,
+    'device_id': <ANY>,
+    'disabled_by': None,
+    'domain': 'binary_sensor',
+    'entity_category': None,
+    'entity_id': 'binary_sensor.printer_102_maintenance_due',
+    'has_entity_name': True,
+    'hidden_by': None,
+    'icon': None,
+    'id': <ANY>,
+    'labels': set({
+    }),
+    'name': None,
+    'object_id_base': 'Maintenance due',
+    'options': dict({
+    }),
+    'original_device_class': <BinarySensorDeviceClass.PROBLEM: 'problem'>,
+    'original_icon': None,
+    'original_name': 'Maintenance due',
+    'platform': 'printlog',
+    'previous_unique_id': None,
+    'suggested_object_id': None,
+    'supported_features': 0,
+    'translation_key': 'maintenance_due',
+    'unique_id': 'api.3dprintlog.com:42:printer:102:maintenance_due',
+    'unit_of_measurement': None,
+  })
+# ---
+# name: test_binary_sensors_full_snapshot[binary_sensor.printer_102_maintenance_due-state]
+  StateSnapshot({
+    'attributes': ReadOnlyDict({
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'problem',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Printer 102 Maintenance due',
+      'next_date': None,
+      'open_count': 0,
+    }),
+    'context': <ANY>,
+    'entity_id': 'binary_sensor.printer_102_maintenance_due',
+    'last_changed': <ANY>,
+    'last_reported': <ANY>,
+    'last_updated': <ANY>,
+    'state': 'off',
+  })
+# ---
+# name: test_binary_sensors_full_snapshot[binary_sensor.printer_102_printing-entry]
+  EntityRegistryEntrySnapshot({
+    'aliases': list([
+      None,
+    ]),
+    'area_id': None,
+    'capabilities': None,
+    'config_entry_id': <ANY>,
+    'config_subentry_id': <ANY>,
+    'device_class': None,
+    'device_id': <ANY>,
+    'disabled_by': None,
+    'domain': 'binary_sensor',
+    'entity_category': None,
+    'entity_id': 'binary_sensor.printer_102_printing',
+    'has_entity_name': True,
+    'hidden_by': None,
+    'icon': None,
+    'id': <ANY>,
+    'labels': set({
+    }),
+    'name': None,
+    'object_id_base': 'Printing',
+    'options': dict({
+    }),
+    'original_device_class': <BinarySensorDeviceClass.RUNNING: 'running'>,
+    'original_icon': None,
+    'original_name': 'Printing',
+    'platform': 'printlog',
+    'previous_unique_id': None,
+    'suggested_object_id': None,
+    'supported_features': 0,
+    'translation_key': 'printing',
+    'unique_id': 'api.3dprintlog.com:42:printer:102:printing',
+    'unit_of_measurement': None,
+  })
+# ---
+# name: test_binary_sensors_full_snapshot[binary_sensor.printer_102_printing-state]
+  StateSnapshot({
+    'attributes': ReadOnlyDict({
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'running',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Printer 102 Printing',
+    }),
+    'context': <ANY>,
+    'entity_id': 'binary_sensor.printer_102_printing',
+    'last_changed': <ANY>,
+    'last_reported': <ANY>,
+    'last_updated': <ANY>,
+    'state': 'off',
+  })
+# ---
+# name: test_binary_sensors_full_snapshot[binary_sensor.printer_102_slot_1_not_enough_filament-entry]
+  EntityRegistryEntrySnapshot({
+    'aliases': list([
+      None,
+    ]),
+    'area_id': None,
+    'capabilities': None,
+    'config_entry_id': <ANY>,
+    'config_subentry_id': <ANY>,
+    'device_class': None,
+    'device_id': <ANY>,
+    'disabled_by': None,
+    'domain': 'binary_sensor',
+    'entity_category': None,
+    'entity_id': 'binary_sensor.printer_102_slot_1_not_enough_filament',
+    'has_entity_name': True,
+    'hidden_by': None,
+    'icon': None,
+    'id': <ANY>,
+    'labels': set({
+    }),
+    'name': None,
+    'object_id_base': 'Slot 1 not enough filament',
+    'options': dict({
+    }),
+    'original_device_class': <BinarySensorDeviceClass.PROBLEM: 'problem'>,
+    'original_icon': None,
+    'original_name': 'Slot 1 not enough filament',
+    'platform': 'printlog',
+    'previous_unique_id': None,
+    'suggested_object_id': None,
+    'supported_features': 0,
+    'translation_key': 'slot_filament_short',
+    'unique_id': 'api.3dprintlog.com:42:printer:102:slot:1:filament_short',
+    'unit_of_measurement': None,
+  })
+# ---
+# name: test_binary_sensors_full_snapshot[binary_sensor.printer_102_slot_1_not_enough_filament-state]
+  StateSnapshot({
+    'attributes': ReadOnlyDict({
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'problem',
+      'estimated_grams': None,
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Printer 102 Slot 1 not enough filament',
+      'remaining_grams': None,
+    }),
+    'context': <ANY>,
+    'entity_id': 'binary_sensor.printer_102_slot_1_not_enough_filament',
+    'last_changed': <ANY>,
+    'last_reported': <ANY>,
+    'last_updated': <ANY>,
+    'state': 'unknown',
+  })
+# ---
+# name: test_binary_sensors_full_snapshot[binary_sensor.snapmaker_u1_connection-entry]
+  EntityRegistryEntrySnapshot({
+    'aliases': list([
+      None,
+    ]),
+    'area_id': None,
+    'capabilities': None,
+    'config_entry_id': <ANY>,
+    'config_subentry_id': <ANY>,
+    'device_class': None,
+    'device_id': <ANY>,
+    'disabled_by': None,
+    'domain': 'binary_sensor',
+    'entity_category': None,
+    'entity_id': 'binary_sensor.snapmaker_u1_connection',
+    'has_entity_name': True,
+    'hidden_by': None,
+    'icon': None,
+    'id': <ANY>,
+    'labels': set({
+    }),
+    'name': None,
+    'object_id_base': 'Connection',
+    'options': dict({
+    }),
+    'original_device_class': <BinarySensorDeviceClass.CONNECTIVITY: 'connectivity'>,
+    'original_icon': None,
+    'original_name': 'Connection',
+    'platform': 'printlog',
+    'previous_unique_id': None,
+    'suggested_object_id': None,
+    'supported_features': 0,
+    'translation_key': 'connection',
+    'unique_id': 'api.3dprintlog.com:42:printer:101:connection',
+    'unit_of_measurement': None,
+  })
+# ---
+# name: test_binary_sensors_full_snapshot[binary_sensor.snapmaker_u1_connection-state]
+  StateSnapshot({
+    'attributes': ReadOnlyDict({
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'connectivity',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Snapmaker U1 Connection',
+      'kind': 'moonraker',
+    }),
+    'context': <ANY>,
+    'entity_id': 'binary_sensor.snapmaker_u1_connection',
+    'last_changed': <ANY>,
+    'last_reported': <ANY>,
+    'last_updated': <ANY>,
+    'state': 'on',
+  })
+# ---
+# name: test_binary_sensors_full_snapshot[binary_sensor.snapmaker_u1_maintenance_due-entry]
+  EntityRegistryEntrySnapshot({
+    'aliases': list([
+      None,
+    ]),
+    'area_id': None,
+    'capabilities': None,
+    'config_entry_id': <ANY>,
+    'config_subentry_id': <ANY>,
+    'device_class': None,
+    'device_id': <ANY>,
+    'disabled_by': None,
+    'domain': 'binary_sensor',
+    'entity_category': None,
+    'entity_id': 'binary_sensor.snapmaker_u1_maintenance_due',
+    'has_entity_name': True,
+    'hidden_by': None,
+    'icon': None,
+    'id': <ANY>,
+    'labels': set({
+    }),
+    'name': None,
+    'object_id_base': 'Maintenance due',
+    'options': dict({
+    }),
+    'original_device_class': <BinarySensorDeviceClass.PROBLEM: 'problem'>,
+    'original_icon': None,
+    'original_name': 'Maintenance due',
+    'platform': 'printlog',
+    'previous_unique_id': None,
+    'suggested_object_id': None,
+    'supported_features': 0,
+    'translation_key': 'maintenance_due',
+    'unique_id': 'api.3dprintlog.com:42:printer:101:maintenance_due',
+    'unit_of_measurement': None,
+  })
+# ---
+# name: test_binary_sensors_full_snapshot[binary_sensor.snapmaker_u1_maintenance_due-state]
+  StateSnapshot({
+    'attributes': ReadOnlyDict({
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'problem',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Snapmaker U1 Maintenance due',
+      'next_date': '2026-11-01T00:00:00+00:00',
+      'open_count': 2,
+    }),
+    'context': <ANY>,
+    'entity_id': 'binary_sensor.snapmaker_u1_maintenance_due',
+    'last_changed': <ANY>,
+    'last_reported': <ANY>,
+    'last_updated': <ANY>,
+    'state': 'off',
+  })
+# ---
+# name: test_binary_sensors_full_snapshot[binary_sensor.snapmaker_u1_printing-entry]
+  EntityRegistryEntrySnapshot({
+    'aliases': list([
+      None,
+    ]),
+    'area_id': None,
+    'capabilities': None,
+    'config_entry_id': <ANY>,
+    'config_subentry_id': <ANY>,
+    'device_class': None,
+    'device_id': <ANY>,
+    'disabled_by': None,
+    'domain': 'binary_sensor',
+    'entity_category': None,
+    'entity_id': 'binary_sensor.snapmaker_u1_printing',
+    'has_entity_name': True,
+    'hidden_by': None,
+    'icon': None,
+    'id': <ANY>,
+    'labels': set({
+    }),
+    'name': None,
+    'object_id_base': 'Printing',
+    'options': dict({
+    }),
+    'original_device_class': <BinarySensorDeviceClass.RUNNING: 'running'>,
+    'original_icon': None,
+    'original_name': 'Printing',
+    'platform': 'printlog',
+    'previous_unique_id': None,
+    'suggested_object_id': None,
+    'supported_features': 0,
+    'translation_key': 'printing',
+    'unique_id': 'api.3dprintlog.com:42:printer:101:printing',
+    'unit_of_measurement': None,
+  })
+# ---
+# name: test_binary_sensors_full_snapshot[binary_sensor.snapmaker_u1_printing-state]
+  StateSnapshot({
+    'attributes': ReadOnlyDict({
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'running',
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Snapmaker U1 Printing',
+    }),
+    'context': <ANY>,
+    'entity_id': 'binary_sensor.snapmaker_u1_printing',
+    'last_changed': <ANY>,
+    'last_reported': <ANY>,
+    'last_updated': <ANY>,
+    'state': 'on',
+  })
+# ---
+# name: test_binary_sensors_full_snapshot[binary_sensor.snapmaker_u1_slot_1_not_enough_filament-entry]
+  EntityRegistryEntrySnapshot({
+    'aliases': list([
+      None,
+    ]),
+    'area_id': None,
+    'capabilities': None,
+    'config_entry_id': <ANY>,
+    'config_subentry_id': <ANY>,
+    'device_class': None,
+    'device_id': <ANY>,
+    'disabled_by': None,
+    'domain': 'binary_sensor',
+    'entity_category': None,
+    'entity_id': 'binary_sensor.snapmaker_u1_slot_1_not_enough_filament',
+    'has_entity_name': True,
+    'hidden_by': None,
+    'icon': None,
+    'id': <ANY>,
+    'labels': set({
+    }),
+    'name': None,
+    'object_id_base': 'Slot 1 not enough filament',
+    'options': dict({
+    }),
+    'original_device_class': <BinarySensorDeviceClass.PROBLEM: 'problem'>,
+    'original_icon': None,
+    'original_name': 'Slot 1 not enough filament',
+    'platform': 'printlog',
+    'previous_unique_id': None,
+    'suggested_object_id': None,
+    'supported_features': 0,
+    'translation_key': 'slot_filament_short',
+    'unique_id': 'api.3dprintlog.com:42:printer:101:slot:1:filament_short',
+    'unit_of_measurement': None,
+  })
+# ---
+# name: test_binary_sensors_full_snapshot[binary_sensor.snapmaker_u1_slot_1_not_enough_filament-state]
+  StateSnapshot({
+    'attributes': ReadOnlyDict({
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'problem',
+      'estimated_grams': 18.5,
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Snapmaker U1 Slot 1 not enough filament',
+      'remaining_grams': 742.5,
+    }),
+    'context': <ANY>,
+    'entity_id': 'binary_sensor.snapmaker_u1_slot_1_not_enough_filament',
+    'last_changed': <ANY>,
+    'last_reported': <ANY>,
+    'last_updated': <ANY>,
+    'state': 'off',
+  })
+# ---
+# name: test_binary_sensors_full_snapshot[binary_sensor.snapmaker_u1_slot_2_not_enough_filament-entry]
+  EntityRegistryEntrySnapshot({
+    'aliases': list([
+      None,
+    ]),
+    'area_id': None,
+    'capabilities': None,
+    'config_entry_id': <ANY>,
+    'config_subentry_id': <ANY>,
+    'device_class': None,
+    'device_id': <ANY>,
+    'disabled_by': None,
+    'domain': 'binary_sensor',
+    'entity_category': None,
+    'entity_id': 'binary_sensor.snapmaker_u1_slot_2_not_enough_filament',
+    'has_entity_name': True,
+    'hidden_by': None,
+    'icon': None,
+    'id': <ANY>,
+    'labels': set({
+    }),
+    'name': None,
+    'object_id_base': 'Slot 2 not enough filament',
+    'options': dict({
+    }),
+    'original_device_class': <BinarySensorDeviceClass.PROBLEM: 'problem'>,
+    'original_icon': None,
+    'original_name': 'Slot 2 not enough filament',
+    'platform': 'printlog',
+    'previous_unique_id': None,
+    'suggested_object_id': None,
+    'supported_features': 0,
+    'translation_key': 'slot_filament_short',
+    'unique_id': 'api.3dprintlog.com:42:printer:101:slot:2:filament_short',
+    'unit_of_measurement': None,
+  })
+# ---
+# name: test_binary_sensors_full_snapshot[binary_sensor.snapmaker_u1_slot_2_not_enough_filament-state]
+  StateSnapshot({
+    'attributes': ReadOnlyDict({
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'problem',
+      'estimated_grams': None,
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Snapmaker U1 Slot 2 not enough filament',
+      'remaining_grams': None,
+    }),
+    'context': <ANY>,
+    'entity_id': 'binary_sensor.snapmaker_u1_slot_2_not_enough_filament',
+    'last_changed': <ANY>,
+    'last_reported': <ANY>,
+    'last_updated': <ANY>,
+    'state': 'unknown',
+  })
+# ---
+# name: test_binary_sensors_full_snapshot[binary_sensor.snapmaker_u1_slot_3_not_enough_filament-entry]
+  EntityRegistryEntrySnapshot({
+    'aliases': list([
+      None,
+    ]),
+    'area_id': None,
+    'capabilities': None,
+    'config_entry_id': <ANY>,
+    'config_subentry_id': <ANY>,
+    'device_class': None,
+    'device_id': <ANY>,
+    'disabled_by': None,
+    'domain': 'binary_sensor',
+    'entity_category': None,
+    'entity_id': 'binary_sensor.snapmaker_u1_slot_3_not_enough_filament',
+    'has_entity_name': True,
+    'hidden_by': None,
+    'icon': None,
+    'id': <ANY>,
+    'labels': set({
+    }),
+    'name': None,
+    'object_id_base': 'Slot 3 not enough filament',
+    'options': dict({
+    }),
+    'original_device_class': <BinarySensorDeviceClass.PROBLEM: 'problem'>,
+    'original_icon': None,
+    'original_name': 'Slot 3 not enough filament',
+    'platform': 'printlog',
+    'previous_unique_id': None,
+    'suggested_object_id': None,
+    'supported_features': 0,
+    'translation_key': 'slot_filament_short',
+    'unique_id': 'api.3dprintlog.com:42:printer:101:slot:3:filament_short',
+    'unit_of_measurement': None,
+  })
+# ---
+# name: test_binary_sensors_full_snapshot[binary_sensor.snapmaker_u1_slot_3_not_enough_filament-state]
+  StateSnapshot({
+    'attributes': ReadOnlyDict({
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'problem',
+      'estimated_grams': 4.25,
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Snapmaker U1 Slot 3 not enough filament',
+      'remaining_grams': 880.0,
+    }),
+    'context': <ANY>,
+    'entity_id': 'binary_sensor.snapmaker_u1_slot_3_not_enough_filament',
+    'last_changed': <ANY>,
+    'last_reported': <ANY>,
+    'last_updated': <ANY>,
+    'state': 'off',
+  })
+# ---
+# name: test_binary_sensors_full_snapshot[binary_sensor.snapmaker_u1_slot_4_not_enough_filament-entry]
+  EntityRegistryEntrySnapshot({
+    'aliases': list([
+      None,
+    ]),
+    'area_id': None,
+    'capabilities': None,
+    'config_entry_id': <ANY>,
+    'config_subentry_id': <ANY>,
+    'device_class': None,
+    'device_id': <ANY>,
+    'disabled_by': None,
+    'domain': 'binary_sensor',
+    'entity_category': None,
+    'entity_id': 'binary_sensor.snapmaker_u1_slot_4_not_enough_filament',
+    'has_entity_name': True,
+    'hidden_by': None,
+    'icon': None,
+    'id': <ANY>,
+    'labels': set({
+    }),
+    'name': None,
+    'object_id_base': 'Slot 4 not enough filament',
+    'options': dict({
+    }),
+    'original_device_class': <BinarySensorDeviceClass.PROBLEM: 'problem'>,
+    'original_icon': None,
+    'original_name': 'Slot 4 not enough filament',
+    'platform': 'printlog',
+    'previous_unique_id': None,
+    'suggested_object_id': None,
+    'supported_features': 0,
+    'translation_key': 'slot_filament_short',
+    'unique_id': 'api.3dprintlog.com:42:printer:101:slot:4:filament_short',
+    'unit_of_measurement': None,
+  })
+# ---
+# name: test_binary_sensors_full_snapshot[binary_sensor.snapmaker_u1_slot_4_not_enough_filament-state]
+  StateSnapshot({
+    'attributes': ReadOnlyDict({
+      <EntityStateAttribute.DEVICE_CLASS: 'device_class'>: 'problem',
+      'estimated_grams': None,
+      <EntityStateAttribute.FRIENDLY_NAME: 'friendly_name'>: 'Snapmaker U1 Slot 4 not enough filament',
+      'remaining_grams': None,
+    }),
+    'context': <ANY>,
+    'entity_id': 'binary_sensor.snapmaker_u1_slot_4_not_enough_filament',
+    'last_changed': <ANY>,
+    'last_reported': <ANY>,
+    'last_updated': <ANY>,
+    'state': 'unknown',
+  })
+# ---

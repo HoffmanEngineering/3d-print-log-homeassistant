@@ -1,0 +1,88 @@
+{
+  "entity": {
+    "sensor": {
+      "current_print": {
+        "default": "mdi:printer-3d"
+      },
+      "print_started": {
+        "default": "mdi:clock-start"
+      },
+      "print_estimated_end": {
+        "default": "mdi:clock-end"
+      },
+      "last_print_result": {
+        "default": "mdi:printer-3d-nozzle",
+        "state": {
+          "success": "mdi:check-circle",
+          "failed": "mdi:close-circle",
+          "canceled": "mdi:cancel",
+          "partial_success": "mdi:alert-circle-check"
+        }
+      },
+      "slot_filament": {
+        "default": "mdi:printer-3d-nozzle-heat"
+      },
+      "slot_remaining": {
+        "default": "mdi:weight-gram"
+      },
+      "print_time": {
+        "default": "mdi:timer-outline"
+      },
+      "last_maintenance": {
+        "default": "mdi:wrench-check"
+      },
+      "prints_this_month": {
+        "default": "mdi:counter"
+      },
+      "grams_this_month": {
+        "default": "mdi:weight-gram"
+      },
+      "unread_notifications": {
+        "default": "mdi:bell"
+      }
+    },
+    "binary_sensor": {
+      "connection": {
+        "default": "mdi:lan-disconnect",
+        "state": {
+          "on": "mdi:lan-connect"
+        }
+      },
+      "printing": {
+        "default": "mdi:printer-3d",
+        "state": {
+          "on": "mdi:printer-3d-nozzle"
+        }
+      },
+      "maintenance_due": {
+        "default": "mdi:wrench-check",
+        "state": {
+          "on": "mdi:wrench-clock"
+        }
+      },
+      "slot_filament_short": {
+        "default": "mdi:printer-3d-nozzle-outline",
+        "state": {
+          "on": "mdi:printer-3d-nozzle-alert"
+        }
+      }
+    },
+    "event": {
+      "print": {
+        "default": "mdi:printer-3d",
+        "state_attributes": {
+          "event_type": {
+            "default": "mdi:printer-3d",
+            "state": {
+              "started": "mdi:printer-3d-nozzle",
+              "success": "mdi:check-circle",
+              "failed": "mdi:close-circle",
+              "canceled": "mdi:cancel",
+              "partial_success": "mdi:alert-circle-check"
+            }
+          }
+        }
+      }
+    }
+  }
+}

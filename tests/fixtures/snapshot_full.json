@@ -1,0 +1,231 @@
+{
+  "schemaVersion": 1,
+  "version": "v-abc123",
+  "printers": [
+    {
+      "id": 101,
+      "name": "Snapmaker U1",
+      "make": "Snapmaker",
+      "model": "U1",
+      "active": true,
+      "slotCount": 4,
+      "printTimeSeconds": 432000,
+      "connection": {
+        "kind": "moonraker",
+        "status": "online"
+      },
+      "currentPrint": {
+        "id": 9001,
+        "title": "Benchy",
+        "startedAt": "2026-10-17T14:00:00+00:00",
+        "estimatedSeconds": 7200,
+        "estimatedEndAt": "2026-10-17T16:00:00+00:00",
+        "source": "moonraker",
+        "url": "https://3dprintlog.com/prints/9001",
+        "filament": [
+          {
+            "slot": 0,
+            "spoolId": "11111111-1111-4111-8111-111111111111",
+            "estimatedGrams": 18.5
+          },
+          {
+            "slot": 2,
+            "spoolId": "33333333-3333-4333-8333-333333333333",
+            "estimatedGrams": 4.25
+          }
+        ]
+      },
+      "lastFinishedPrint": null,
+      "lastMaintenance": {
+        "id": "66666666-6666-4666-8666-666666666666",
+        "date": "2026-09-30T00:00:00+00:00",
+        "category": "Lubrication",
+        "description": "Oiled the rails"
+      },
+      "openMaintenance": {
+        "count": 2,
+        "nextDate": "2026-11-01T00:00:00+00:00"
+      },
+      "loaded": [
+        {
+          "slot": 0,
+          "slotLabel": "T0",
+          "spoolId": "11111111-1111-4111-8111-111111111111",
+          "spoolNumber": 1,
+          "name": "Galaxy Black",
+          "material": "PLA",
+          "colorHex": "#1A1A1A",
+          "colors": [
+            "#1A1A1A"
+          ],
+          "remainingGrams": 742.5
+        },
+        {
+          "slot": 2,
+          "slotLabel": "T2",
+          "spoolId": "33333333-3333-4333-8333-333333333333",
+          "spoolNumber": 3,
+          "name": "Silk Rainbow",
+          "material": "PLA",
+          "colorHex": "#FF0000",
+          "colors": [
+            "#FF0000",
+            "#00FF00",
+            "#0000FF"
+          ],
+          "remainingGrams": 880.0
+        },
+        {
+          "slot": null,
+          "slotLabel": null,
+          "spoolId": "44444444-4444-4444-8444-444444444444",
+          "spoolNumber": 4,
+          "name": "Ash Gray",
+          "material": "PLA",
+          "colorHex": "#9E9E9E",
+          "colors": [
+            "#9E9E9E"
+          ],
+          "remainingGrams": 450.0
+        }
+      ]
+    },
+    {
+      "id": 102,
+      "name": null,
+      "make": null,
+      "model": null,
+      "active": true,
+      "slotCount": 1,
+      "printTimeSeconds": 86400,
+      "connection": null,
+      "currentPrint": null,
+      "lastFinishedPrint": {
+        "id": 8999,
+        "title": "Phone stand",
+        "status": "success",
+        "startedAt": "2026-10-16T08:00:00+00:00",
+        "finishedAt": "2026-10-16T10:30:00+00:00",
+        "source": "manual",
+        "url": "https://3dprintlog.com/prints/8999"
+      },
+      "lastMaintenance": null,
+      "openMaintenance": null,
+      "loaded": [
+        {
+          "slot": null,
+          "slotLabel": null,
+          "spoolId": "22222222-2222-4222-8222-222222222222",
+          "spoolNumber": 2,
+          "name": "Signal Red",
+          "material": "PETG",
+          "colorHex": "#D32F2F",
+          "colors": [
+            "#D32F2F"
+          ],
+          "remainingGrams": 310.0
+        }
+      ]
+    }
+  ],
+  "spools": [
+    {
+      "id": "11111111-1111-4111-8111-111111111111",
+      "spoolNumber": 1,
+      "name": "Galaxy Black",
+      "brand": "Prusament",
+      "material": "PLA",
+      "category": "filament",
+      "colorName": "Black",
+      "colorHex": "#1A1A1A",
+      "colors": [
+        "#1A1A1A"
+      ],
+      "remainingGrams": 742.5,
+      "usedGrams": 257.5,
+      "initialGrams": 1000.0,
+      "storageLocation": "Shelf A",
+      "active": true
+    },
+    {
+      "id": "22222222-2222-4222-8222-222222222222",
+      "spoolNumber": 2,
+      "name": "Signal Red",
+      "brand": "Polymaker",
+      "material": "PETG",
+      "category": "filament",
+      "colorName": "Red",
+      "colorHex": "#D32F2F",
+      "colors": [
+        "#D32F2F"
+      ],
+      "remainingGrams": 310.0,
+      "usedGrams": 690.0,
+      "initialGrams": 1000.0,
+      "storageLocation": null,
+      "active": true
+    },
+    {
+      "id": "33333333-3333-4333-8333-333333333333",
+      "spoolNumber": 3,
+      "name": "Silk Rainbow",
+      "brand": "Eryone",
+      "material": "PLA",
+      "category": "filament",
+      "colorName": "Rainbow",
+      "colorHex": "#FF0000",
+      "colors": [
+        "#FF0000",
+        "#00FF00",
+        "#0000FF"
+      ],
+      "remainingGrams": 880.0,
+      "usedGrams": 120.0,
+      "initialGrams": 1000.0,
+      "storageLocation": "Shelf B",
+      "active": true
+    },
+    {
+      "id": "44444444-4444-4444-8444-444444444444",
+      "spoolNumber": 4,
+      "name": "Ash Gray",
+      "brand": "Generic",
+      "material": "PLA",
+      "category": "filament",
+      "colorName": "Gray",
+      "colorHex": "#9E9E9E",
+      "colors": [
+        "#9E9E9E"
+      ],
+      "remainingGrams": 450.0,
+      "usedGrams": 550.0,
+      "initialGrams": 1000.0,
+      "storageLocation": null,
+      "active": true
+    },
+    {
+      "id": "55555555-5555-4555-8555-555555555555",
+      "spoolNumber": 5,
+      "name": null,
+      "brand": null,
+      "material": null,
+      "category": "resin",
+      "colorName": null,
+      "colorHex": null,
+      "colors": [],
+      "remainingGrams": null,
+      "usedGrams": 0.0,
+      "initialGrams": null,
+      "storageLocation": null,
+      "active": false
+    }
+  ],
+  "account": {
+    "month": "2026-10",
+    "timeZone": "America/Chicago",
+    "printCount": 12,
+    "grams": 384.5,
+    "successCount": 10,
+    "failedCount": 2
+  }
+}

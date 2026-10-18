@@ -1,0 +1,296 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to 3D Print Log",
+        "description": "In 3D Print Log, open Personal API Keys from your profile picture (top right), create a new key with the description Home Assistant, then paste it here. The key is shown only once.",
+        "data": {
+          "base_url": "API URL",
+          "api_key": "API key"
+        },
+        "data_description": {
+          "base_url": "Leave this as the default unless you run your own 3D Print Log API.",
+          "api_key": "The key is stored in Home Assistant and sent only to the API URL above."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reauthenticate 3D Print Log",
+        "description": "The API key was rejected. In 3D Print Log, open Personal API Keys from your profile picture (top right), create a new key with the description Home Assistant, then paste it here. It must belong to the same account.",
+        "data": {
+          "api_key": "API key"
+        },
+        "data_description": {
+          "api_key": "The new API key for the same 3D Print Log account."
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure 3D Print Log",
+        "description": "Change the API URL or the API key. The new values must belong to the same account. Create keys under Personal API Keys in 3D Print Log (profile picture, top right).",
+        "data": {
+          "base_url": "API URL",
+          "api_key": "API key"
+        },
+        "data_description": {
+          "base_url": "The address of the 3D Print Log API.",
+          "api_key": "An API key for the same 3D Print Log account."
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "The API key was rejected. Check that you copied the whole key.",
+      "cannot_connect": "Could not connect to 3D Print Log. Check the API URL and your network.",
+      "invalid_url": "The API URL is not valid.",
+      "unknown": "An unexpected error occurred. Check the Home Assistant log for details."
+    },
+    "abort": {
+      "already_configured": "This 3D Print Log account is already configured for this API URL.",
+      "reauth_successful": "Reauthentication succeeded.",
+      "reconfigure_successful": "The configuration was updated.",
+      "wrong_account": "That API key or URL is for a different account or API host. Use one for the account and host you originally set up."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "current_print": {
+        "name": "Current print"
+      },
+      "print_started": {
+        "name": "Print started"
+      },
+      "print_estimated_end": {
+        "name": "Print estimated end"
+      },
+      "last_print_result": {
+        "name": "Last print result",
+        "state": {
+          "success": "Success",
+          "failed": "Failed",
+          "canceled": "Canceled",
+          "partial_success": "Partial success"
+        }
+      },
+      "slot_filament": {
+        "name": "Slot {slot} filament"
+      },
+      "slot_remaining": {
+        "name": "Slot {slot} remaining"
+      },
+      "print_time": {
+        "name": "Print time"
+      },
+      "last_maintenance": {
+        "name": "Last maintenance"
+      },
+      "prints_this_month": {
+        "name": "Prints this month"
+      },
+      "grams_this_month": {
+        "name": "Grams this month"
+      },
+      "unread_notifications": {
+        "name": "Unread notifications"
+      }
+    },
+    "binary_sensor": {
+      "connection": {
+        "name": "Connection"
+      },
+      "printing": {
+        "name": "Printing"
+      },
+      "maintenance_due": {
+        "name": "Maintenance due"
+      },
+      "slot_filament_short": {
+        "name": "Slot {slot} not enough filament"
+      }
+    },
+    "event": {
+      "print": {
+        "name": "Print",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "started": "Started",
+              "success": "Succeeded",
+              "failed": "Failed",
+              "canceled": "Canceled",
+              "partial_success": "Partially succeeded"
+            }
+          }
+        }
+      }
+    }
+  },
+  "issues": {
+    "unsupported_schema": {
+      "title": "Update the 3D Print Log integration",
+      "description": "The 3D Print Log API for {title} sends data in schema version {schema_version}, but this version of the integration reads only version {supported_version}. Update the integration (in HACS) to keep receiving updates. Until then, its entities show the last data received."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "3D Print Log options",
+        "data": {
+          "scan_interval": "Update interval"
+        },
+        "data_description": {
+          "scan_interval": "How often to check for changes, in seconds (15 to 300)."
+        }
+      }
+    }
+  },
+  "services": {
+    "adjust_remaining": {
+      "name": "Adjust remaining",
+      "description": "Adds to or removes from a spool's remaining amount. Returns the grams before and after.",
+      "fields": {
+        "entity_id": {
+          "name": "Slot sensor",
+          "description": "A slot filament or slot remaining sensor. The spool loaded in that slot is used."
+        },
+        "spool_id": {
+          "name": "Spool ID",
+          "description": "The spool's GUID."
+        },
+        "spool_number": {
+          "name": "Spool number",
+          "description": "The spool's number in 3D Print Log."
+        },
+        "amount": {
+          "name": "Amount",
+          "description": "The amount to add (positive) or remove (negative). It can't be zero."
+        },
+        "unit": {
+          "name": "Unit",
+          "description": "Grams, millimeters of filament length, or milliliters of resin volume."
+        },
+        "notes": {
+          "name": "Notes",
+          "description": "A note for the adjustment, up to 1000 characters."
+        },
+        "config_entry_id": {
+          "name": "Account",
+          "description": "The 3D Print Log account. Needed only when more than one is set up."
+        }
+      }
+    },
+    "set_spool_active": {
+      "name": "Set spool active",
+      "description": "Marks a spool active or inactive.",
+      "fields": {
+        "entity_id": {
+          "name": "Slot sensor",
+          "description": "A slot filament or slot remaining sensor. The spool loaded in that slot is used."
+        },
+        "spool_id": {
+          "name": "Spool ID",
+          "description": "The spool's GUID."
+        },
+        "spool_number": {
+          "name": "Spool number",
+          "description": "The spool's number in 3D Print Log."
+        },
+        "active": {
+          "name": "Active",
+          "description": "Whether the spool is active."
+        },
+        "config_entry_id": {
+          "name": "Account",
+          "description": "The 3D Print Log account. Needed only when more than one is set up."
+        }
+      }
+    },
+    "log_maintenance": {
+      "name": "Log maintenance",
+      "description": "Records a finished maintenance task for a printer. Returns the new record's ID.",
+      "fields": {
+        "device_id": {
+          "name": "Printer",
+          "description": "The printer the maintenance was done on."
+        },
+        "category": {
+          "name": "Category",
+          "description": "The kind of maintenance, up to 256 characters."
+        },
+        "description": {
+          "name": "Description",
+          "description": "What was done, up to 1000 characters."
+        },
+        "notes": {
+          "name": "Notes",
+          "description": "Extra notes, up to 1000 characters."
+        },
+        "date": {
+          "name": "Date",
+          "description": "When it was done. Defaults to now."
+        },
+        "maintenance_id": {
+          "name": "Maintenance ID",
+          "description": "Reserved for closing open tasks. Not supported yet."
+        },
+        "config_entry_id": {
+          "name": "Account",
+          "description": "The 3D Print Log account. Needed only when more than one is set up."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "invalid_slot_entity": {
+      "message": "Choose a 3D Print Log slot filament or slot remaining sensor."
+    },
+    "spool_choice": {
+      "message": "Give exactly one of a slot sensor, a spool ID or a spool number."
+    },
+    "slot_empty": {
+      "message": "No spool is loaded in that slot."
+    },
+    "spool_not_found": {
+      "message": "3D Print Log has no such spool."
+    },
+    "printer_not_found": {
+      "message": "3D Print Log has no such printer. It may have been deleted."
+    },
+    "spool_untracked": {
+      "message": "That spool doesn't track its remaining amount, so it can't be adjusted."
+    },
+    "amount_invalid": {
+      "message": "The amount must be a number other than zero."
+    },
+    "api_validation": {
+      "message": "3D Print Log rejected the request: {message}"
+    },
+    "api_too_old": {
+      "message": "This action needs a newer 3D Print Log API than the one this account uses."
+    },
+    "api_unavailable": {
+      "message": "Could not reach 3D Print Log. Try again in a moment."
+    },
+    "entry_not_found": {
+      "message": "That 3D Print Log account isn't set up."
+    },
+    "entry_not_loaded": {
+      "message": "That 3D Print Log account isn't loaded right now."
+    },
+    "no_entry": {
+      "message": "No 3D Print Log account is loaded."
+    },
+    "config_entry_required": {
+      "message": "More than one 3D Print Log account is set up. Choose one with config_entry_id."
+    },
+    "invalid_printer_device": {
+      "message": "Choose a 3D Print Log printer device."
+    },
+    "device_entry_mismatch": {
+      "message": "That printer or slot sensor belongs to a different 3D Print Log account than config_entry_id."
+    },
+    "maintenance_id_unsupported": {
+      "message": "maintenance_id is not supported yet."
+    },
+    "api_auth": {
+      "message": "3D Print Log rejected the API key. Reauthenticate the integration."
+    }
+  }
+}
