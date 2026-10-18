@@ -1,0 +1,65 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to 3D Print Log",
+        "description": "Create a dedicated API key named \"Home Assistant\" under Settings → API keys in 3D Print Log, then paste it here.",
+        "data": {
+          "base_url": "API URL",
+          "api_key": "API key"
+        },
+        "data_description": {
+          "base_url": "Leave this as the default unless you run your own 3D Print Log API.",
+          "api_key": "The key is stored in Home Assistant and sent only to the API URL above."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reauthenticate 3D Print Log",
+        "description": "The API key was rejected. Create a new key named \"Home Assistant\" under Settings → API keys in 3D Print Log, then paste it here. It must belong to the same account.",
+        "data": {
+          "api_key": "API key"
+        },
+        "data_description": {
+          "api_key": "The new API key for the same 3D Print Log account."
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure 3D Print Log",
+        "description": "Change the API URL or the API key. The new values must belong to the same account. Create keys under Settings → API keys in 3D Print Log.",
+        "data": {
+          "base_url": "API URL",
+          "api_key": "API key"
+        },
+        "data_description": {
+          "base_url": "The address of the 3D Print Log API.",
+          "api_key": "An API key for the same 3D Print Log account."
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "The API key was rejected. Check that you copied the whole key.",
+      "cannot_connect": "Could not connect to 3D Print Log. Check the API URL and your network.",
+      "invalid_url": "The API URL is not valid.",
+      "unknown": "An unexpected error occurred. Check the Home Assistant log for details."
+    },
+    "abort": {
+      "already_configured": "This 3D Print Log account is already configured for this API URL.",
+      "reauth_successful": "Reauthentication succeeded.",
+      "reconfigure_successful": "The configuration was updated.",
+      "wrong_account": "That API key or URL belongs to a different account. Use one for the account you originally set up."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "3D Print Log options",
+        "data": {
+          "scan_interval": "Update interval"
+        },
+        "data_description": {
+          "scan_interval": "How often to check for changes, in seconds (15 to 300)."
+        }
+      }
+    }
+  }
+}
