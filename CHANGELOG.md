@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1 (2026-10-18)
+
+- Docs: the HACS install steps now spell out adding the custom repository, downloading the integration and restarting Home Assistant.
+
 ## 0.1.0 (2026-10-18)
 
 - API key setup with reauthentication and reconfiguration. One entry per account and API URL.
