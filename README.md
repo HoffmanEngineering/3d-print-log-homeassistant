@@ -23,11 +23,12 @@ This integration deliberately creates no per-spool entities, so the two can run 
 
 ## Installation
 
-1. In HACS, open the menu and choose **Custom repositories**.
-2. Add `https://github.com/HoffmanEngineering/3d-print-log-homeassistant` with the category **Integration**.
-3. Download **3D Print Log** and restart Home Assistant.
-4. In 3D Print Log, open **Personal API Keys** from your profile picture (top right), click **Create new API Key**, enter the description **Home Assistant** and submit. Copy the key. It is shown only once.
-5. In Home Assistant, go to **Settings > Devices & services > Add integration**, choose **3D Print Log** and paste the key. Leave the API URL at its default unless you run your own API.
+1. In HACS, open the menu (top right) and choose **Custom repositories**.
+2. Enter `https://github.com/HoffmanEngineering/3d-print-log-homeassistant`, choose the type **Integration**, click **Add** and close the dialog. This only adds the repository to HACS. Nothing is installed yet.
+3. Search HACS for **3D Print Log** and open it. Click **Download** (bottom right), then **Download** again in the dialog.
+4. Restart Home Assistant (**Settings > System**, then the power button at the top right). The integration can be added only after the restart.
+5. In 3D Print Log, open **Personal API Keys** from your profile picture (top right), click **Create new API Key**, enter the description **Home Assistant** and submit. Copy the key. It is shown only once.
+6. In Home Assistant, go to **Settings > Devices & services > Add integration**, choose **3D Print Log** and paste the key. Leave the API URL at its default unless you run your own API.
 
 Use a dedicated key. You can revoke it in 3D Print Log at any time without affecting anything else. If the key is rejected later, Home Assistant starts a reauthentication flow.
 
