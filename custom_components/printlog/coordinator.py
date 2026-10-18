@@ -81,6 +81,10 @@ class SnapshotCoordinator(DataUpdateCoordinator[Snapshot]):
         self._event_listeners: list[EventListener] = []
         self._dispatch_ready = False
         self._pending_events: list[PrintEvent] = []
+        self._state_unsaved = False
+        # Printer device identifier -> the snapshot key (ETag) in which it was
+        # first found missing. A device is removed on the second strike.
+        self._missing_since: dict[str, str] = {}
 
         self._version: str | None = None
         self._version_etag: str | None = None
@@ -88,6 +92,9 @@ class SnapshotCoordinator(DataUpdateCoordinator[Snapshot]):
         self._last_snapshot_monotonic: float | None = None
         self._last_snapshot_fetch: datetime | None = None
         self._last_error: str | None = None
+        self._last_error_at: datetime | None = None
+        # (version, monotonic time) of the last snapshot with an unsupported schema.
+        self._unsupported: tuple[str | None, float] | None = None
 
     # --- Polling ---------------------------------------------------------------
 
@@ -95,11 +102,15 @@ class SnapshotCoordinator(DataUpdateCoordinator[Snapshot]):
         try:
             return await self._async_poll()
         except PrintLogError as err:
-            self._last_error = f"{type(err).__name__}: {err}"
+            self._record_error(f"{type(err).__name__}: {err}")
             raise _translate_error(err, self.update_interval) from err
         except UpdateFailed as err:
-            self._last_error = str(err)
+            self._record_error(str(err))
             raise
+
+    def _record_error(self, message: str) -> None:
+        self._last_error = message
+        self._last_error_at = dt_util.utcnow()
 
     async def _async_poll(self) -> Snapshot:
         new_version: tuple[str, str | None] | None = None
@@ -112,6 +123,16 @@ class SnapshotCoordinator(DataUpdateCoordinator[Snapshot]):
                 new_version = (version, etag)
             else:
                 self._version_etag = etag
+
+        candidate = new_version[0] if new_version else self._version
+        if self._unsupported is not None:
+            unsupported_version, seen_at = self._unsupported
+            if (
+                candidate == unsupported_version
+                and time.monotonic() - seen_at < FORCED_SNAPSHOT_SECONDS
+            ):
+                # Same snapshot as last time: don't download it again.
+                raise UpdateFailed("The snapshot schema version is still not supported")
 
         if not self._snapshot_due(new_version is not None):
             return self.data
@@ -126,10 +147,10 @@ class SnapshotCoordinator(DataUpdateCoordinator[Snapshot]):
             return self.data
 
         raw, snapshot_etag = fetched
-        snapshot = self._parse(raw)
+        snapshot = self._parse(raw, candidate)
         self._commit(new_version, snapshot_etag)
         self._process_events(snapshot)
-        self._remove_stale_devices(snapshot)
+        self._remove_stale_devices(snapshot, snapshot_etag or f"version:{snapshot.version}")
         return snapshot
 
     def _snapshot_due(self, version_changed: bool) -> bool:
@@ -137,11 +158,12 @@ class SnapshotCoordinator(DataUpdateCoordinator[Snapshot]):
             return True
         return time.monotonic() - self._last_snapshot_monotonic >= FORCED_SNAPSHOT_SECONDS
 
-    def _parse(self, raw: dict) -> Snapshot:
+    def _parse(self, raw: dict, version: str | None) -> Snapshot:
         schema_version = raw.get("schemaVersion")
         if not isinstance(schema_version, int):
             raise UpdateFailed("The snapshot has no schema version")
         if schema_version > SUPPORTED_SCHEMA_VERSION:
+            self._unsupported = (version, time.monotonic())
             async_raise_unsupported_schema(self.hass, self.config_entry, schema_version)
             raise UpdateFailed(
                 f"Snapshot schema version {schema_version} is not supported; update the integration"
@@ -150,6 +172,7 @@ class SnapshotCoordinator(DataUpdateCoordinator[Snapshot]):
             snapshot = Snapshot.from_json(raw)
         except (KeyError, TypeError, ValueError, AttributeError) as err:
             raise UpdateFailed(f"Invalid snapshot: {type(err).__name__}") from err
+        self._unsupported = None
         async_clear_unsupported_schema(self.hass, self.config_entry)
         return snapshot
 
@@ -165,10 +188,18 @@ class SnapshotCoordinator(DataUpdateCoordinator[Snapshot]):
     # --- Events ----------------------------------------------------------------
 
     def _process_events(self, snapshot: Snapshot) -> None:
+        if self._store.closed:
+            # The entry is unloading; the next setup diffs from the saved state.
+            return
         events, state = diff(self._event_state, snapshot, dt_util.utcnow())
         if state != self._event_state:
             self._event_state = state
-            self._store.async_save_delayed(state)
+            if self._dispatch_ready:
+                self._store.async_save_delayed(state)
+            else:
+                # Not persisted until dispatch starts, so events that were never
+                # delivered (setup failed) are found again next time.
+                self._state_unsaved = True
         if not events:
             return
         if self._dispatch_ready:
@@ -205,8 +236,17 @@ class SnapshotCoordinator(DataUpdateCoordinator[Snapshot]):
         """
         self._dispatch_ready = True
         pending, self._pending_events = self._pending_events, []
+        if self._state_unsaved:
+            self._state_unsaved = False
+            self._store.async_save_delayed(self._event_state)
         if pending:
             self._dispatch(pending)
+
+    @callback
+    def async_discard_pending_events(self) -> None:
+        """Drop queued events without saving the state that produced them."""
+        self._pending_events = []
+        self._state_unsaved = False
 
     @property
     def event_state(self) -> dict[int, PrinterEventState]:
@@ -214,20 +254,34 @@ class SnapshotCoordinator(DataUpdateCoordinator[Snapshot]):
 
     # --- Devices ---------------------------------------------------------------
 
-    def _remove_stale_devices(self, snapshot: Snapshot) -> None:
+    def _remove_stale_devices(self, snapshot: Snapshot, snapshot_key: str) -> None:
+        """Remove printer devices missing from two consecutive, different snapshots.
+
+        One bad response (an empty or truncated printer list) must not delete
+        devices and the user's customizations with them.
+        """
         prefix = f"{self.entry_uid}:printer:"
         current = {f"{prefix}{p.id}" for p in snapshot.printers}
         registry = dr.async_get(self.hass)
+        missing_now: dict[str, str] = {}
         for device in dr.async_entries_for_config_entry(registry, self.config_entry.entry_id):
             printer_ids = {
                 value
                 for domain, value in device.identifiers
                 if domain == DOMAIN and value.startswith(prefix)
             }
-            if printer_ids and not printer_ids & current:
+            if not printer_ids or printer_ids & current:
+                continue
+            ident = min(printer_ids)
+            first_missing = self._missing_since.get(ident)
+            if first_missing is not None and first_missing != snapshot_key:
                 registry.async_update_device(
                     device.id, remove_config_entry_id=self.config_entry.entry_id
                 )
+            else:
+                missing_now[ident] = first_missing or snapshot_key
+        # Printers that reappeared (or whose devices are gone) start over.
+        self._missing_since = missing_now
 
     # --- Diagnostics -----------------------------------------------------------
 
@@ -242,6 +296,7 @@ class SnapshotCoordinator(DataUpdateCoordinator[Snapshot]):
             ),
             "last_update_success": self.last_update_success,
             "last_error": self._last_error,
+            "last_error_at": self._last_error_at.isoformat() if self._last_error_at else None,
             "update_interval_seconds": (
                 self.update_interval.total_seconds() if self.update_interval else None
             ),

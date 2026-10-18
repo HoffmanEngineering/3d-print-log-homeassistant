@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import copy
 import json
 import logging
@@ -52,6 +53,8 @@ class FakeApi:
         self.snapshot_etag = '"s1"'
         self.unread_status = 200
         self.retry_after: str | None = None
+        self.snapshot_gate: asyncio.Event | None = None
+        self.snapshot_entered = asyncio.Event()
         aioclient_mock.get(VERSION_URL, side_effect=self._version)
         aioclient_mock.get(SNAPSHOT_URL, side_effect=self._snapshot)
         aioclient_mock.get(UNREAD_URL, side_effect=self._unread)
@@ -71,6 +74,10 @@ class FakeApi:
         )
 
     async def _snapshot(self, method, url, data):
+        if self.snapshot_gate is not None:
+            # Holds the request open, so a test can act while it is in flight.
+            self.snapshot_entered.set()
+            await self.snapshot_gate.wait()
         if self.snapshot_status != 200:
             return self._error(method, url, self.snapshot_status)
         return self._resp(method, url, 200, self.snapshot, {"ETag": self.snapshot_etag})
@@ -258,6 +265,67 @@ async def test_schema_version_2_raises_repair_and_update_failed(
     assert registry.async_get_issue(DOMAIN, f"unsupported_schema_{entry.entry_id}") is None
 
 
+async def test_unsupported_schema_not_refetched_until_change_or_forced(
+    hass: HomeAssistant, api: FakeApi, freezer
+) -> None:
+    entry = await setup_entry(hass)
+    coordinator = entry.runtime_data.snapshot
+    api.set_change("v2", '"s2"', lambda s: s.update(schemaVersion=2))
+    await coordinator.async_refresh()
+    assert len(api.calls(SNAPSHOT_URL)) == 2
+
+    # Same version, inside the forced window: fail without downloading again.
+    freezer.tick(timedelta(seconds=30))
+    await coordinator.async_refresh()
+    await coordinator.async_refresh()
+    assert not coordinator.last_update_success
+    assert len(api.calls(SNAPSHOT_URL)) == 2
+
+    # After 300 s it is fetched again (still unsupported).
+    freezer.tick(timedelta(seconds=271))
+    await coordinator.async_refresh()
+    assert len(api.calls(SNAPSHOT_URL)) == 3
+    assert not coordinator.last_update_success
+
+    # A new version is fetched at once, and a supported one recovers.
+    api.set_change("v3", '"s3"', lambda s: s.update(schemaVersion=1))
+    await coordinator.async_refresh()
+    assert len(api.calls(SNAPSHOT_URL)) == 4
+    assert coordinator.last_update_success
+    assert coordinator.data.version == "v3"
+
+
+async def test_failed_snapshot_after_version_change_retried(
+    hass: HomeAssistant, api: FakeApi
+) -> None:
+    entry = await setup_entry(hass)
+    coordinator = entry.runtime_data.snapshot
+    api.set_change("v2", '"s2"')
+    api.snapshot_status = 503
+    await coordinator.async_refresh()
+    assert not coordinator.last_update_success
+    api.snapshot_status = 200
+    await coordinator.async_refresh()
+    assert len(api.calls(SNAPSHOT_URL)) == 3
+    assert coordinator.last_update_success
+    assert coordinator.data.version == "v2"
+
+
+async def test_failed_forced_snapshot_retried(hass: HomeAssistant, api: FakeApi, freezer) -> None:
+    entry = await setup_entry(hass)
+    coordinator = entry.runtime_data.snapshot
+    api.version_status = 304
+    freezer.tick(timedelta(seconds=301))
+    api.snapshot_status = 503
+    await coordinator.async_refresh()
+    assert not coordinator.last_update_success
+    api.snapshot_status = 200
+    freezer.tick(timedelta(seconds=30))
+    await coordinator.async_refresh()
+    assert len(api.calls(SNAPSHOT_URL)) == 3
+    assert coordinator.last_update_success
+
+
 async def test_invalid_snapshot_update_failed(hass: HomeAssistant, api: FakeApi) -> None:
     entry = await setup_entry(hass)
     coordinator = entry.runtime_data.snapshot
@@ -381,23 +449,79 @@ async def test_slow_failure_isolated(hass: HomeAssistant, api: FakeApi) -> None:
 # --- Stale devices -------------------------------------------------------------
 
 
-async def test_stale_printer_device_removed(hass: HomeAssistant, api: FakeApi) -> None:
-    entry = await setup_entry(hass)
+def make_devices(hass: HomeAssistant, entry) -> dict[str, str]:
     registry = dr.async_get(hass)
-    ids = {
+    return {
         name: registry.async_get_or_create(
             config_entry_id=entry.entry_id, identifiers={(DOMAIN, f"{UID}:{name}")}
         ).id
         for name in ("printer:101", "printer:102", "account")
     }
 
-    def drop_102(s: dict) -> None:
-        s["printers"] = [p for p in s["printers"] if p["id"] != 102]
+
+def drop_102(s: dict) -> None:
+    s["printers"] = [p for p in s["printers"] if p["id"] != 102]
+
+
+def drop_all(s: dict) -> None:
+    s["printers"] = []
+
+
+def restore_printers(s: dict) -> None:
+    s["printers"] = load_snapshot()["printers"]
+
+
+async def test_stale_printer_device_removed(hass: HomeAssistant, api: FakeApi) -> None:
+    """R9: removed only after two consecutive, different snapshots miss it."""
+    entry = await setup_entry(hass)
+    registry = dr.async_get(hass)
+    ids = make_devices(hass, entry)
 
     api.set_change("v2", '"s2"', drop_102)
     await entry.runtime_data.snapshot.async_refresh()
+    assert registry.async_get(ids["printer:102"]) is not None  # first strike
+
+    api.set_change("v3", '"s3"')
+    await entry.runtime_data.snapshot.async_refresh()
 
     assert registry.async_get(ids["printer:101"]) is not None
+    assert registry.async_get(ids["printer:102"]) is None
+    assert registry.async_get(ids["account"]) is not None
+
+
+async def test_one_empty_snapshot_keeps_devices(hass: HomeAssistant, api: FakeApi, freezer) -> None:
+    entry = await setup_entry(hass)
+    registry = dr.async_get(hass)
+    ids = make_devices(hass, entry)
+    coordinator = entry.runtime_data.snapshot
+
+    api.set_change("v2", '"s2"', drop_all)
+    await coordinator.async_refresh()
+    assert all(registry.async_get(i) is not None for i in ids.values())
+
+    # The same snapshot again (a forced refetch, same ETag) is not a second strike.
+    freezer.tick(timedelta(seconds=301))
+    await coordinator.async_refresh()
+    assert len(api.calls(SNAPSHOT_URL)) == 3
+    assert all(registry.async_get(i) is not None for i in ids.values())
+
+
+async def test_reappearing_printer_resets_strike(hass: HomeAssistant, api: FakeApi) -> None:
+    entry = await setup_entry(hass)
+    registry = dr.async_get(hass)
+    ids = make_devices(hass, entry)
+    coordinator = entry.runtime_data.snapshot
+
+    api.set_change("v2", '"s2"', drop_all)
+    await coordinator.async_refresh()
+    api.set_change("v3", '"s3"', restore_printers)
+    await coordinator.async_refresh()
+    api.set_change("v4", '"s4"', drop_all)
+    await coordinator.async_refresh()
+    assert all(registry.async_get(i) is not None for i in ids.values())
+    api.set_change("v5", '"s5"', drop_all)
+    await coordinator.async_refresh()
+    assert registry.async_get(ids["printer:101"]) is None
     assert registry.async_get(ids["printer:102"]) is None
     assert registry.async_get(ids["account"]) is not None
 
@@ -520,6 +644,73 @@ async def test_finish_while_down_fires_once_after_restart(
     assert len(received) == 1
 
 
+async def test_invalid_stored_entries_skipped(
+    hass: HomeAssistant, api: FakeApi, hass_storage: dict[str, Any]
+) -> None:
+    entry = make_entry()
+    hass_storage[store_key(entry)] = {
+        "version": 1,
+        "minor_version": 1,
+        "key": store_key(entry),
+        "data": {
+            "printers": {
+                "101": {"seen": [], "current": 9001},
+                "102": "not a dict",
+                "abc": {"seen": [], "current": None},
+            }
+        },
+    }
+    await setup_entry(hass, entry)
+    assert entry.state is ConfigEntryState.LOADED
+    state = entry.runtime_data.snapshot.event_state
+    assert set(state) == {101, 102}  # 102 was skipped on load, then seeded fresh
+    assert 8999 in state[102].seen
+
+
+async def test_forward_failure_does_not_persist_undelivered_events(
+    hass: HomeAssistant, api: FakeApi, freezer, hass_storage: dict[str, Any]
+) -> None:
+    entry = make_entry()
+    stored = {"printers": {"101": {"seen": [], "started": [9001], "current": 9001}}}
+    hass_storage[store_key(entry)] = {
+        "version": 1,
+        "minor_version": 1,
+        "key": store_key(entry),
+        "data": copy.deepcopy(stored),
+    }
+    api.set_change("v2", '"s2"', finish_101)
+    with patch.object(
+        hass.config_entries, "async_forward_entry_setups", side_effect=RuntimeError("boom")
+    ):
+        await setup_entry(hass, entry)
+    assert entry.state is ConfigEntryState.SETUP_ERROR
+    await tick(hass, freezer, 11)
+    assert hass_storage[store_key(entry)]["data"] == stored
+
+
+async def test_refresh_in_flight_during_unload_saves_nothing(
+    hass: HomeAssistant, api: FakeApi, freezer, hass_storage: dict[str, Any]
+) -> None:
+    entry = await setup_entry(hass)
+    await tick(hass, freezer, 11)
+    saved_before = copy.deepcopy(hass_storage[store_key(entry)]["data"])
+    coordinator = entry.runtime_data.snapshot
+    received: list[list] = []
+    coordinator.async_add_event_listener(received.append)
+
+    api.set_change("v2", '"s2"', finish_101)
+    api.snapshot_gate = asyncio.Event()
+    task = hass.async_create_task(coordinator.async_refresh())
+    await api.snapshot_entered.wait()
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    api.snapshot_gate.set()
+    await task
+    await tick(hass, freezer, 11)
+
+    assert received == []
+    assert hass_storage[store_key(entry)]["data"] == saved_before
+
+
 async def test_reload_before_delayed_save_keeps_state(
     hass: HomeAssistant, api: FakeApi, hass_storage: dict[str, Any]
 ) -> None:
@@ -587,5 +778,24 @@ async def test_diagnostics_has_no_secrets(hass: HomeAssistant, api: FakeApi) -> 
     assert diag["snapshot_etag"] == '"s1"'
     assert diag["last_snapshot_fetch"] == NOW.isoformat()
     assert "PrintLogConnectionError" in diag["last_error"]
+    assert diag["last_error_at"] == NOW.isoformat()
     assert diag["event_state"]["101"]["current"] == 9001
     assert "secret-key" not in json.dumps(diag)
+
+
+async def test_diagnostics_keeps_last_error_after_recovery(
+    hass: HomeAssistant, api: FakeApi, freezer
+) -> None:
+    entry = await setup_entry(hass)
+    coordinator = entry.runtime_data.snapshot
+    assert coordinator.diagnostics()["last_error"] is None
+    assert coordinator.diagnostics()["last_error_at"] is None
+    api.version_status = 503
+    await coordinator.async_refresh()
+    freezer.tick(timedelta(seconds=40))
+    api.version_status = 200
+    await coordinator.async_refresh()
+    diag = coordinator.diagnostics()
+    assert diag["last_update_success"] is True
+    assert "PrintLogConnectionError" in diag["last_error"]
+    assert diag["last_error_at"] == NOW.isoformat()

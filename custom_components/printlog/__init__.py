@@ -41,7 +41,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: PrintLogConfigEntry) -> 
 
     entry.runtime_data = PrintLogData(client=client, snapshot=snapshot, slow=slow, store=store)
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    try:
+        await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    except BaseException:
+        # Nothing was announced, so don't persist the state that saw it.
+        snapshot.async_discard_pending_events()
+        raise
     snapshot.async_start_dispatch()
     return True
 
@@ -55,7 +60,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: PrintLogConfigEntry) ->
     """Unload a config entry, writing any pending event state first."""
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
-        await entry.runtime_data.store.async_flush()
+        data = entry.runtime_data
+        # Stop polling first. A refresh already in flight finds the store
+        # closed and neither saves nor dispatches.
+        await data.snapshot.async_shutdown()
+        await data.slow.async_shutdown()
+        await data.store.async_flush()
     return unloaded
 
 

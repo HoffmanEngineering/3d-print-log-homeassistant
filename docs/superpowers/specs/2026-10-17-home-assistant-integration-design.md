@@ -181,7 +181,13 @@ Every module has one job. `api.py`, `models.py` and `events.py` never import `ho
 
 **`SlowCoordinator`** (interval 300 s): `GET /api/Notifications/unread-count`. Its failures make only the unread-notifications sensor unavailable, never the printer entities.
 
-**Stale devices:** after each successful snapshot, any device of this entry whose printer id is no longer in `printers[]` is removed from the device registry. The account device is never removed.
+**Stale devices:** after each successful 200 snapshot, the coordinator checks every printer device of this entry against `printers[]`. A device is removed from the device registry only when its printer id is missing from two consecutive successful 200 snapshots with different ETags. That way one bad response (an empty or truncated `printers[]`) can't delete devices and the user's customizations with them.
+- The first miss is recorded with that snapshot's ETag.
+- A later snapshot with the same ETag isn't a second miss.
+- A printer that reappears clears its miss.
+- The record lives in memory, so a restart starts over.
+
+The account device is never removed.
 
 ### 4.6 Ids
 

@@ -41,19 +41,29 @@ class EventStore:
         )
         self._data: dict[str, Any] = {"printers": {}}
         self._dirty = False
+        self._closed = False
 
     async def async_load(self) -> dict[int, PrinterEventState]:
         stored = await self._store.async_load()
         state: dict[int, PrinterEventState] = {}
         printers = stored.get("printers") if isinstance(stored, dict) else None
-        for key, value in (printers or {}).items():
+        if not isinstance(printers, dict):
+            return state
+        for key, value in printers.items():
             try:
                 state[int(key)] = PrinterEventState.from_dict(value)
-            except TypeError, ValueError:
+            except AttributeError, TypeError, ValueError:
                 _LOGGER.debug("Ignoring invalid stored event state for printer %r", key)
         return state
 
+    @property
+    def closed(self) -> bool:
+        """True once the entry is unloading: nothing more is saved."""
+        return self._closed
+
     def async_save_delayed(self, state: dict[int, PrinterEventState]) -> None:
+        if self._closed:
+            return
         self._data = {"printers": {str(pid): s.to_dict() for pid, s in state.items()}}
         self._dirty = True
         self._store.async_delay_save(self._data_to_save, STORE_SAVE_DELAY)
@@ -63,7 +73,12 @@ class EventStore:
         return self._data
 
     async def async_flush(self) -> None:
-        """Write a pending delayed save now (on unload, so a reload reads it)."""
+        """Write a pending delayed save now and close the store (on unload).
+
+        A reload then reads the latest state, and a refresh still in flight
+        can't schedule another write on this instance.
+        """
+        self._closed = True
         if self._dirty:
             self._dirty = False
             # async_save also cancels the pending delayed write.
