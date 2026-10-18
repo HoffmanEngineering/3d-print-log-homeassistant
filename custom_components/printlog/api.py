@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+import math
+import uuid
+from collections.abc import Mapping
+from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -59,10 +62,18 @@ class PrintLogUnsupportedError(PrintLogError):
 
 
 def normalized_host(base_url: str) -> str:
-    """Return a lowercase host[:port] for a base URL, dropping default ports."""
+    """Return a lowercase host[:port] for a base URL, dropping default ports.
+
+    IPv6 hosts keep their brackets. Raises ValueError for an invalid port.
+    """
     parts = urlsplit(base_url.strip())
     host = (parts.hostname or "").lower()
-    port = parts.port
+    if ":" in host:
+        host = f"[{host}]"
+    try:
+        port = parts.port
+    except ValueError as err:
+        raise ValueError(f"Invalid port in URL: {base_url!r}") from err
     if port is not None and not (
         (parts.scheme == "https" and port == 443) or (parts.scheme == "http" and port == 80)
     ):
@@ -77,6 +88,13 @@ def _parse_json(text: str) -> Any:
         return json.loads(text)
     except ValueError:
         return None
+
+
+def _spool_path(spool_id: str) -> str:
+    try:
+        return str(uuid.UUID(str(spool_id)))
+    except ValueError as err:
+        raise PrintLogValidationError("Invalid spool id") from err
 
 
 class PrintLogClient:
@@ -97,7 +115,8 @@ class PrintLogClient:
         etag: str | None = None,
         new_endpoint: bool = False,
         allow_304: bool = False,
-    ) -> tuple[Any, aiohttp.typedefs.LooseHeaders | Any]:
+        expect_object: bool = True,
+    ) -> tuple[Any, Mapping[str, str]]:
         headers = {"X-Api-Key": self._api_key, "Accept": "application/json"}
         if etag:
             headers["If-None-Match"] = etag
@@ -108,11 +127,11 @@ class PrintLogClient:
                 params=params,
                 json=json_body,
                 headers=headers,
+                allow_redirects=False,
                 timeout=aiohttp.ClientTimeout(total=REQUEST_TIMEOUT),
             ) as resp:
                 status = resp.status
                 text = await resp.text()
-                ctype = resp.headers.get("Content-Type", "")
                 resp_headers = resp.headers
         except (TimeoutError, aiohttp.ClientError) as err:
             raise PrintLogConnectionError(type(err).__name__) from err
@@ -120,7 +139,10 @@ class PrintLogClient:
         if status == 304 and allow_304:
             return NOT_MODIFIED, resp_headers
         if status < 300:
-            return _parse_json(text), resp_headers
+            data = _parse_json(text)
+            if expect_object and not isinstance(data, dict):
+                raise PrintLogConnectionError("Invalid response")
+            return data, resp_headers
 
         body = _parse_json(text)
         if status in (401, 403):
@@ -130,17 +152,22 @@ class PrintLogClient:
                 retry_after: float | None = float(resp_headers.get("Retry-After", ""))
             except ValueError:
                 retry_after = None
+            if retry_after is not None and (not math.isfinite(retry_after) or retry_after < 0):
+                retry_after = None
             raise PrintLogRateLimitError(retry_after)
-        if status == 400:
-            message = "Bad request"
+        if new_endpoint and status == 405:
+            raise PrintLogUnsupportedError("Endpoint not available")
+        if status == 404:
+            if new_endpoint and not (
+                isinstance(body, dict) and body.get("code") == "material_not_found"
+            ):
+                raise PrintLogUnsupportedError("Endpoint not available")
+            raise PrintLogNotFoundError("Not found")
+        if 400 <= status < 500:
+            message = f"HTTP {status}"
             if isinstance(body, dict):
                 message = body.get("detail") or body.get("title") or message
             raise PrintLogValidationError(str(message))
-        if status == 404:
-            has_problem = "json" in ctype and isinstance(body, dict)
-            if new_endpoint and not has_problem:
-                raise PrintLogUnsupportedError("Endpoint not available")
-            raise PrintLogNotFoundError("Not found")
         raise PrintLogConnectionError(f"HTTP {status}")
 
     async def get_me(self) -> dict:
@@ -151,7 +178,10 @@ class PrintLogClient:
         data, headers = await self._request("GET", "/api/sync/version", etag=etag, allow_304=True)
         if data is NOT_MODIFIED:
             return NOT_MODIFIED
-        return str(data["version"]), headers.get("ETag")
+        version = data.get("version")
+        if not isinstance(version, str) or not version:
+            raise PrintLogConnectionError("Invalid response")
+        return version, headers.get("ETag")
 
     async def get_snapshot(
         self, time_zone: str, etag: str | None
@@ -176,7 +206,7 @@ class PrintLogClient:
     ) -> dict:
         data, _ = await self._request(
             "POST",
-            f"/api/Filaments/{spool_id}/adjustments",
+            f"/api/Filaments/{_spool_path(spool_id)}/adjustments",
             json_body={"source": source, "delta": delta, "notes": notes},
             new_endpoint=True,
         )
@@ -185,9 +215,10 @@ class PrintLogClient:
     async def set_spool_active(self, spool_id: str, is_active: bool) -> None:
         await self._request(
             "PUT",
-            f"/api/Filaments/{spool_id}/active",
+            f"/api/Filaments/{_spool_path(spool_id)}/active",
             json_body={"isActive": is_active},
             new_endpoint=True,
+            expect_object=False,
         )
 
     async def create_maintenance(
@@ -198,6 +229,8 @@ class PrintLogClient:
         description: str,
         notes: str | None,
     ) -> dict:
+        if date.tzinfo is None:
+            date = date.replace(tzinfo=UTC)
         data, _ = await self._request(
             "POST",
             "/api/PrinterMaintenance",
