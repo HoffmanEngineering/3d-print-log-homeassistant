@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
 import json
+from datetime import UTC, datetime, timedelta, timezone
 
 import aiohttp
 import pytest
-
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from custom_components.printlog.api import (
@@ -117,7 +116,7 @@ async def test_validation_uses_title_when_no_detail(aioclient_mock, client) -> N
         json={"title": "Bad thing"},
     )
     with pytest.raises(PrintLogValidationError, match="Bad thing"):
-        await client.create_maintenance(1, datetime.now(timezone.utc), None, "d", None)
+        await client.create_maintenance(1, datetime.now(UTC), None, "d", None)
 
 
 async def test_timeout_is_connection_error(aioclient_mock, client) -> None:
