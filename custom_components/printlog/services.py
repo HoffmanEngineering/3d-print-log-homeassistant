@@ -250,7 +250,10 @@ async def _async_log_maintenance(call: ServiceCall) -> dict[str, Any]:
     if date is None:
         date = dt_util.utcnow()
     elif date.tzinfo is None:
-        tz = dt_util.get_time_zone(hass.config.time_zone) or dt_util.get_default_time_zone()
+        tz = (
+            await dt_util.async_get_time_zone(hass.config.time_zone)
+            or dt_util.get_default_time_zone()
+        )
         date = dt_util.as_utc(date.replace(tzinfo=tz))
     result = await _call(
         entry.runtime_data.client.create_maintenance(

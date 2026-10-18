@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, tzinfo
 from functools import partial
 from typing import Any
 
@@ -19,7 +19,6 @@ from homeassistant.const import UnitOfMass, UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.typing import StateType
-from homeassistant.util import dt as dt_util
 
 from . import PrintLogConfigEntry
 from .coordinator import SlowCoordinator, SnapshotCoordinator
@@ -260,10 +259,8 @@ ACCOUNT_SENSORS: tuple[AccountSensorDescription, ...] = (
 )
 
 
-def month_start(account: Account) -> datetime | None:
-    """The start of `account.month` in `account.time_zone`."""
-    # get_time_zone caches, so the zone file is read only once.
-    zone = dt_util.get_time_zone(account.time_zone) or dt_util.get_default_time_zone()
+def month_start(account: Account, zone: tzinfo) -> datetime | None:
+    """The start of `account.month` in `zone` (the account's resolved time zone)."""
     try:
         year, month = account.month.split("-")
         return datetime(int(year), int(month), 1, tzinfo=zone)
@@ -358,7 +355,8 @@ class AccountMonthSensor(PrintLogAccountEntity, SensorEntity):
     @property
     def last_reset(self) -> datetime | None:
         data = self.coordinator.data
-        return month_start(data.account) if data else None
+        # The zone is resolved by the coordinator; reading it does no I/O.
+        return month_start(data.account, self.coordinator.account_zone) if data else None
 
 
 class UnreadNotificationsSensor(PrintLogAccountEntity, SensorEntity):

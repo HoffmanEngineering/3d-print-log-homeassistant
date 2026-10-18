@@ -6,7 +6,7 @@ import logging
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, tzinfo
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
@@ -95,6 +95,10 @@ class SnapshotCoordinator(DataUpdateCoordinator[Snapshot]):
         self._last_error_at: datetime | None = None
         # (version, monotonic time) of the last snapshot with an unsupported schema.
         self._unsupported: tuple[str | None, float] | None = None
+        # The account's time zone, resolved off the event loop whenever the
+        # snapshot names a new one. None when the name is unknown.
+        self._account_zone_name: str | None = None
+        self._account_zone: tzinfo | None = None
 
     # --- Polling ---------------------------------------------------------------
 
@@ -148,10 +152,22 @@ class SnapshotCoordinator(DataUpdateCoordinator[Snapshot]):
 
         raw, snapshot_etag = fetched
         snapshot = self._parse(raw, candidate)
+        await self._async_resolve_account_zone(snapshot.account.time_zone)
         self._commit(new_version, snapshot_etag)
         self._process_events(snapshot)
         self._remove_stale_devices(snapshot, snapshot_etag or f"version:{snapshot.version}")
         return snapshot
+
+    async def _async_resolve_account_zone(self, name: str) -> None:
+        if name == self._account_zone_name:
+            return
+        self._account_zone = await dt_util.async_get_time_zone(name) if name else None
+        self._account_zone_name = name
+
+    @property
+    def account_zone(self) -> tzinfo:
+        """The account's time zone, or Home Assistant's when it is unknown. No I/O."""
+        return self._account_zone or dt_util.get_default_time_zone()
 
     def _snapshot_due(self, version_changed: bool) -> bool:
         if self.data is None or version_changed or self._last_snapshot_monotonic is None:

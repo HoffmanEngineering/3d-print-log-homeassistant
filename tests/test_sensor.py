@@ -149,6 +149,42 @@ async def test_month_totals_unknown_zone_falls_back(
     )
 
 
+async def test_last_reset_does_no_zone_lookup(hass: HomeAssistant, api: FakeApi) -> None:  # noqa: F811
+    """The account zone is resolved off the event loop and cached; last_reset only reads it."""
+    entry = await setup_entry(hass)
+    coordinator = entry.runtime_data.snapshot
+    assert coordinator.account_zone == ZoneInfo("America/Chicago")
+    with patch(
+        "homeassistant.util.dt.get_time_zone", side_effect=AssertionError("zone lookup")
+    ) as lookup:
+        for ent in hass.data["sensor"].entities:
+            if ent.unique_id == f"{UID}:account:prints_this_month":
+                assert ent.last_reset == datetime(2026, 10, 1, tzinfo=ZoneInfo("America/Chicago"))
+                ent.async_write_ha_state()
+                break
+        else:
+            pytest.fail("prints_this_month entity not found")
+    lookup.assert_not_called()
+
+
+async def test_last_reset_follows_account_zone_change(
+    hass: HomeAssistant,
+    api: FakeApi,  # noqa: F811
+) -> None:
+    entry = await setup_entry(hass)
+
+    def move(snapshot: dict) -> None:
+        snapshot["account"]["timeZone"] = "Asia/Tokyo"
+
+    api.set_change("v2", '"s2"', move)
+    await entry.runtime_data.snapshot.async_refresh()
+    await hass.async_block_till_done()
+    state = hass.states.get(entity_id(hass, "sensor", "account:prints_this_month"))
+    assert datetime.fromisoformat(state.attributes["last_reset"]) == datetime(
+        2026, 10, 1, tzinfo=ZoneInfo("Asia/Tokyo")
+    )
+
+
 async def test_entities_v1_17_snapshot_omits_extended(
     hass: HomeAssistant,
     api: FakeApi,  # noqa: F811
