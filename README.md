@@ -19,7 +19,7 @@ This integration deliberately creates no per-spool entities, so the two can run 
 
 - Home Assistant 2026.10 or newer.
 - A 3D Print Log account.
-- The extended entities (print time, last maintenance, maintenance due, "not enough filament", and the source and URL attributes) need the next 3D Print Log API release. On an older API the integration still works and creates fewer entities. The missing ones appear on their own once the API is updated.
+- The extended entities (print time, last maintenance, maintenance due, "not enough filament", and the source and URL attributes) need 3D Print Log API v1.18.0 or later. On an older API the integration still works and creates fewer entities. The missing ones appear on their own once the API is updated.
 
 ## Installation
 

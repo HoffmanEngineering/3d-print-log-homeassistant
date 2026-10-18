@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0 (unreleased)
+## 0.1.0 (2026-10-18)
 
 - API key setup with reauthentication and reconfiguration. One entry per account and API URL.
 - A device per printer: connection, printing, maintenance due, current print, print start and estimated end, last print result, all-time print time and last maintenance.
@@ -10,4 +10,4 @@
 - Actions `printlog.adjust_remaining`, `printlog.set_spool_active` and `printlog.log_maintenance`.
 - A repair issue when the API sends a schema version this release does not read.
 - Diagnostics with the API key, names, titles, notes, storage locations and URLs redacted.
-- Works with older API versions, with fewer entities.
+- Works with API versions before v1.18.0, with fewer entities.
