@@ -19,6 +19,9 @@ BUS_EVENT = {
     "partial_success": "printlog_print_failed",
 }
 
+EVENT_TYPES = ("started", "success", "failed", "canceled", "partial_success")
+PAYLOAD_VERSION = 1
+
 
 @dataclass(frozen=True, slots=True)
 class PrinterEventState:
@@ -57,6 +60,28 @@ class PrintEvent:
     finished_at: datetime | None
     source: str | None
     url: str | None
+
+
+def _iso(value: datetime | None) -> str | None:
+    return value.isoformat() if value is not None else None
+
+
+def events_payload(event: PrintEvent, entry_id: str, device_id: str | None) -> dict:
+    """The bus event payload (spec 6.3). Additive only; `version` is 1."""
+    return {
+        "version": PAYLOAD_VERSION,
+        "entry_id": entry_id,
+        "device_id": device_id,
+        "printer_id": event.printer_id,
+        "printer_name": event.printer_name,
+        "print_id": event.print_id,
+        "status": event.status,
+        "title": event.title,
+        "started_at": _iso(event.started_at),
+        "finished_at": _iso(event.finished_at),
+        "source": event.source,
+        "url": event.url,
+    }
 
 
 def _add_seen(seen: tuple[int, ...], print_id: int) -> tuple[int, ...]:

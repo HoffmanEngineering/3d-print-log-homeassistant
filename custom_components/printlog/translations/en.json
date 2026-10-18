@@ -104,6 +104,22 @@
       "slot_filament_short": {
         "name": "Slot {slot} not enough filament"
       }
+    },
+    "event": {
+      "print": {
+        "name": "Print",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "started": "Started",
+              "success": "Succeeded",
+              "failed": "Failed",
+              "canceled": "Canceled",
+              "partial_success": "Partially succeeded"
+            }
+          }
+        }
+      }
     }
   },
   "issues": {

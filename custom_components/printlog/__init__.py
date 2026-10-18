@@ -3,22 +3,24 @@
 from __future__ import annotations
 
 import logging
+from functools import partial
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import PrintLogClient
-from .const import CONF_API_KEY, CONF_BASE_URL
+from .const import CONF_API_KEY, CONF_BASE_URL, DOMAIN
 from .coordinator import PrintLogData, SlowCoordinator, SnapshotCoordinator
+from .events import BUS_EVENT, PrintEvent, events_payload
 from .repairs import async_clear_unsupported_schema
 from .store import EventStore
 
 _LOGGER = logging.getLogger(__name__)
 
-# Later tasks add their platforms here (event).
-PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR]
+PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.EVENT]
 
 type PrintLogConfigEntry = ConfigEntry[PrintLogData]
 
@@ -41,6 +43,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: PrintLogConfigEntry) -> 
 
     entry.runtime_data = PrintLogData(client=client, snapshot=snapshot, slow=slow, store=store)
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
+    # Before async_start_dispatch, so events of the first refresh are fired too.
+    entry.async_on_unload(snapshot.async_add_event_listener(partial(_fire_bus_events, hass, entry)))
     try:
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     except BaseException:
@@ -49,6 +53,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: PrintLogConfigEntry) -> 
         raise
     snapshot.async_start_dispatch()
     return True
+
+
+@callback
+def _fire_bus_events(
+    hass: HomeAssistant, entry: PrintLogConfigEntry, events: list[PrintEvent]
+) -> None:
+    """Fire each print event on the Home Assistant bus (spec 6.3)."""
+    registry = dr.async_get(hass)
+    uid = entry.runtime_data.snapshot.entry_uid
+    for event in events:
+        device = registry.async_get_device_by_identifier(
+            (DOMAIN, f"{uid}:printer:{event.printer_id}"), entry.entry_id
+        )
+        device_id = device.id if device is not None else None
+        hass.bus.async_fire(
+            BUS_EVENT[event.status], events_payload(event, entry.entry_id, device_id)
+        )
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: PrintLogConfigEntry) -> None:

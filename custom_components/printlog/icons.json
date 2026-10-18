@@ -66,6 +66,23 @@
           "on": "mdi:printer-3d-nozzle-alert"
         }
       }
+    },
+    "event": {
+      "print": {
+        "default": "mdi:printer-3d",
+        "state_attributes": {
+          "event_type": {
+            "default": "mdi:printer-3d",
+            "state": {
+              "started": "mdi:printer-3d-nozzle",
+              "success": "mdi:check-circle",
+              "failed": "mdi:close-circle",
+              "canceled": "mdi:cancel",
+              "partial_success": "mdi:alert-circle-check"
+            }
+          }
+        }
+      }
     }
   }
 }
