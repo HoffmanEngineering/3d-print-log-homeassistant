@@ -183,7 +183,9 @@ async def _call[T](awaitable: Awaitable[T]) -> T:
         raise _error("spool_not_found") from err
     except PrintLogUnsupportedError as err:
         raise HomeAssistantError(translation_domain=DOMAIN, translation_key="api_too_old") from err
-    except (PrintLogAuthError, PrintLogConnectionError, PrintLogRateLimitError) as err:
+    except PrintLogAuthError as err:
+        raise HomeAssistantError(translation_domain=DOMAIN, translation_key="api_auth") from err
+    except (PrintLogConnectionError, PrintLogRateLimitError) as err:
         raise HomeAssistantError(
             translation_domain=DOMAIN, translation_key="api_unavailable"
         ) from err

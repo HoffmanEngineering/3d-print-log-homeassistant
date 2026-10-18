@@ -10,6 +10,7 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 
 from custom_components.printlog.const import DOMAIN
+from custom_components.printlog.services import async_register_services
 
 from .test_coordinator import (
     BASE,
@@ -24,6 +25,8 @@ from .test_coordinator import (
 from .test_sensor import entity_id
 
 SPOOL_1 = "11111111-1111-4111-8111-111111111111"
+SPOOL_2 = "22222222-2222-4222-8222-222222222222"
+SPOOL_3 = "33333333-3333-4333-8333-333333333333"
 SPOOL_UNTRACKED = "55555555-5555-4555-8555-555555555555"
 ADJ_URL = f"{BASE}/api/Filaments/{SPOOL_1}/adjustments"
 ACTIVE_URL = f"{BASE}/api/Filaments/{SPOOL_1}/active"
@@ -206,7 +209,7 @@ async def test_adjust_unsupported_api_error(hass: HomeAssistant, api: FakeApi) -
     assert err.value.translation_key == "api_too_old"
 
 
-@pytest.mark.parametrize("status", [401, 429, 500])
+@pytest.mark.parametrize("status", [429, 500])
 async def test_adjust_unavailable_errors(
     hass: HomeAssistant,
     api: FakeApi,  # noqa: F811
@@ -217,6 +220,47 @@ async def test_adjust_unavailable_errors(
     with pytest.raises(HomeAssistantError) as err:
         await call(hass, "adjust_remaining", {"spool_number": 1, "amount": 5})
     assert err.value.translation_key == "api_unavailable"
+
+
+@pytest.mark.parametrize("status", [401, 403])
+async def test_adjust_auth_error(
+    hass: HomeAssistant,
+    api: FakeApi,  # noqa: F811
+    status: int,
+) -> None:
+    api.mock.post(ADJ_URL, status=status)
+    await setup_entry(hass)
+    with pytest.raises(HomeAssistantError) as err:
+        await call(hass, "adjust_remaining", {"spool_number": 1, "amount": 5})
+    assert err.value.translation_key == "api_auth"
+
+
+@pytest.mark.parametrize(
+    ("suffix", "spool_id"),
+    [
+        ("printer:101:slot:1:remaining", SPOOL_1),
+        ("printer:101:slot:3:filament", SPOOL_3),
+        ("printer:101:slot:3:remaining", SPOOL_3),
+        ("printer:102:slot:1:remaining", SPOOL_2),
+    ],
+)
+async def test_adjust_slot_resolves_to_its_own_spool(
+    hass: HomeAssistant,
+    api: FakeApi,  # noqa: F811
+    suffix: str,
+    spool_id: str,
+) -> None:
+    for sid in (SPOOL_1, SPOOL_2, SPOOL_3):
+        api.mock.post(
+            f"{BASE}/api/Filaments/{sid}/adjustments",
+            json={"beforeGrams": 1.0, "afterGrams": 2.0},
+        )
+    await setup_entry(hass)
+    await call(
+        hass, "adjust_remaining", {"entity_id": entity_id(hass, "sensor", suffix), "amount": 1}
+    )
+    posted = [str(c[1]) for c in api.mock.mock_calls if c[0] == "POST"]
+    assert posted == [f"{BASE}/api/Filaments/{spool_id}/adjustments"]
 
 
 async def test_set_spool_active(hass: HomeAssistant, api: FakeApi) -> None:  # noqa: F811
@@ -348,28 +392,56 @@ async def test_single_entry_needs_no_config_entry_id(hass: HomeAssistant, api: F
     assert len(bodies(api, "POST", ADJ_URL)) == 2
 
 
-async def test_multiple_entries_require_config_entry_id(hass: HomeAssistant, api: FakeApi) -> None:  # noqa: F811
-    api.mock.post(ADJ_URL, json={"beforeGrams": 1.0, "afterGrams": 2.0})
-    first = await setup_entry(hass)
+OTHER_BASE = "https://self.example.com"
+OTHER_UID = "self.example.com:43"
+OTHER_ADJ_URL = f"{OTHER_BASE}/api/Filaments/{SPOOL_1}/adjustments"
+
+
+async def setup_second_entry(hass: HomeAssistant, api: FakeApi):  # noqa: F811
+    """A second account on its own base URL and key."""
+    api.mock.get(f"{OTHER_BASE}/api/sync/version", json={"version": "v1"})
+    api.mock.get(f"{OTHER_BASE}/api/sync/snapshot", json=api.snapshot)
+    api.mock.get(f"{OTHER_BASE}/api/Notifications/unread-count", json=api.unread_body)
+    api.mock.post(OTHER_ADJ_URL, json={"beforeGrams": 10.0, "afterGrams": 20.0})
     second = make_entry(
-        unique_id="api.3dprintlog.com:43",
-        data={
-            "base_url": BASE,
-            "auth_type": "api_key",
-            "api_key": "other-key",
-        },
+        unique_id=OTHER_UID,
+        data={"base_url": OTHER_BASE, "auth_type": "api_key", "api_key": "other-key"},
     )
     await setup_entry(hass, second)
     assert second.state.value == "loaded"
+    return second
+
+
+def posts(api: FakeApi) -> list[tuple[str, str]]:  # noqa: F811
+    """(url, api key) of every POST made."""
+    return [(str(c[1]), c[3]["X-Api-Key"]) for c in api.mock.mock_calls if c[0] == "POST"]
+
+
+async def test_multiple_entries_require_config_entry_id(hass: HomeAssistant, api: FakeApi) -> None:  # noqa: F811
+    api.mock.post(ADJ_URL, json={"beforeGrams": 1.0, "afterGrams": 2.0})
+    first = await setup_entry(hass)
+    second = await setup_second_entry(hass, api)
     with pytest.raises(ServiceValidationError) as err:
         await call(hass, "adjust_remaining", {"spool_number": 1, "amount": 1})
     assert err.value.translation_key == "config_entry_required"
-    await call(
+    assert posts(api) == []
+
+    result = await call(
         hass,
         "adjust_remaining",
         {"spool_number": 1, "amount": 1, "config_entry_id": first.entry_id},
     )
-    assert len(bodies(api, "POST", ADJ_URL)) == 1
+    assert result["before_grams"] == 1.0
+    assert posts(api) == [(ADJ_URL, "secret-key")]
+
+    result = await call(
+        hass,
+        "adjust_remaining",
+        {"spool_number": 1, "amount": 1, "config_entry_id": second.entry_id},
+    )
+    assert result["before_grams"] == 10.0
+    assert posts(api)[1:] == [(OTHER_ADJ_URL, "other-key")]
+
     with pytest.raises(ServiceValidationError) as err:
         await call(
             hass,
@@ -377,6 +449,36 @@ async def test_multiple_entries_require_config_entry_id(hass: HomeAssistant, api
             {"spool_number": 1, "amount": 1, "config_entry_id": "bogus"},
         )
     assert err.value.translation_key == "entry_not_found"
+
+
+async def test_config_entry_id_not_loaded(hass: HomeAssistant, api: FakeApi) -> None:  # noqa: F811
+    await setup_entry(hass)
+    idle = make_entry(unique_id=OTHER_UID)
+    idle.add_to_hass(hass)
+    with pytest.raises(ServiceValidationError) as err:
+        await call(
+            hass,
+            "adjust_remaining",
+            {"spool_number": 1, "amount": 1, "config_entry_id": idle.entry_id},
+        )
+    assert err.value.translation_key == "entry_not_loaded"
+
+
+async def test_log_maintenance_device_entry_mismatch(hass: HomeAssistant, api: FakeApi) -> None:  # noqa: F811
+    await setup_entry(hass)
+    second = await setup_second_entry(hass, api)
+    with pytest.raises(ServiceValidationError) as err:
+        await call(
+            hass,
+            "log_maintenance",
+            {
+                "device_id": printer_device_id(hass, 101),
+                "description": "x",
+                "config_entry_id": second.entry_id,
+            },
+        )
+    assert err.value.translation_key == "device_entry_mismatch"
+    assert posts(api) == []
 
 
 async def test_entity_entry_overrides_config_entry_id(hass: HomeAssistant, api: FakeApi) -> None:  # noqa: F811
@@ -395,8 +497,6 @@ async def test_entity_entry_overrides_config_entry_id(hass: HomeAssistant, api: 
 
 
 async def test_no_loaded_entry(hass: HomeAssistant) -> None:
-    from custom_components.printlog.services import async_register_services
-
     async_register_services(hass)
     with pytest.raises(ServiceValidationError) as err:
         await call(hass, "adjust_remaining", {"spool_number": 1, "amount": 1})
