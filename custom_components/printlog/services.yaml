@@ -1,0 +1,90 @@
+adjust_remaining:
+  fields:
+    entity_id:
+      selector:
+        entity:
+          integration: printlog
+          domain: sensor
+    spool_id:
+      selector:
+        text:
+    spool_number:
+      selector:
+        number:
+          min: 1
+          mode: box
+    amount:
+      required: true
+      selector:
+        number:
+          mode: box
+          step: any
+    unit:
+      default: g
+      selector:
+        select:
+          options:
+            - g
+            - mm
+            - ml
+    notes:
+      selector:
+        text:
+          multiline: true
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: printlog
+
+set_spool_active:
+  fields:
+    entity_id:
+      selector:
+        entity:
+          integration: printlog
+          domain: sensor
+    spool_id:
+      selector:
+        text:
+    spool_number:
+      selector:
+        number:
+          min: 1
+          mode: box
+    active:
+      required: true
+      selector:
+        boolean:
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: printlog
+
+log_maintenance:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: printlog
+    category:
+      selector:
+        text:
+    description:
+      required: true
+      selector:
+        text:
+    notes:
+      selector:
+        text:
+          multiline: true
+    date:
+      selector:
+        datetime:
+    maintenance_id:
+      selector:
+        text:
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: printlog

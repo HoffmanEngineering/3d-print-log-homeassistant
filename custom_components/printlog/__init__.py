@@ -8,14 +8,17 @@ from functools import partial
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.typing import ConfigType
 
 from .api import PrintLogClient
 from .const import CONF_API_KEY, CONF_BASE_URL, DOMAIN
 from .coordinator import PrintLogData, SlowCoordinator, SnapshotCoordinator
 from .events import BUS_EVENT, PrintEvent, events_payload
 from .repairs import async_clear_unsupported_schema
+from .services import async_register_services
 from .store import EventStore
 
 _LOGGER = logging.getLogger(__name__)
@@ -23,6 +26,14 @@ _LOGGER = logging.getLogger(__name__)
 PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.EVENT]
 
 type PrintLogConfigEntry = ConfigEntry[PrintLogData]
+
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Register the actions once; they look up the loaded entries when called."""
+    async_register_services(hass)
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: PrintLogConfigEntry) -> bool:
