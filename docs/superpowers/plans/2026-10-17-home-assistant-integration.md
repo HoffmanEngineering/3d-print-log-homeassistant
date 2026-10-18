@@ -5,8 +5,8 @@
 **Goal:** Ship the additive API fields and endpoints (spec §3), and a HACS integration `printlog` v0.1.0 that implements spec §4–§8.
 
 **Architecture:** There are two tracks, which don't depend on each other.
-- **Track A (API, C#):** extends the sync snapshot and adds two filament endpoints. Worktree `D:\Development\github\3d-print-log-api-worktrees\236-ha-sync`, branch `feat/236-ha-sync-fields`.
-- **Track B (integration, Python):** worktree `D:\Development\github\3d-print-log-homeassistant-worktrees\v0.1`, branch `feat/v0.1.0`.
+- **Track A (API, C#, Tasks 1–4):** extends the sync snapshot and adds two filament endpoints. Worktree `D:\Development\github\3d-print-log-api-worktrees\236-ha-sync`, branch `feat/236-ha-sync-fields`.
+- **Track B (integration, Python, Tasks 5–16):** worktree `D:\Development\github\3d-print-log-homeassistant-worktrees\v0.1`, branch `feat/v0.1.0`.
   - It is built bottom-up: pure modules first (`models`, `api`, `events`), then the HA glue.
   - It parses every field from Track A as optional, so it runs against today's API.
 
@@ -27,23 +27,23 @@
 - **Polling:** the snapshot is forced every 300 s; `SlowCoordinator` runs every 300 s; HTTP timeout 15 s.
 - **Events:** the restart window is 60 minutes, and the event payload has `version: 1`.
 - **Spelling:** American English in code, UI text, docs and commits.
-- **Integration tests** run in Docker: `scripts/test.sh` (Task B1). CI uses ubuntu-latest with Python 3.14. Coverage is at least 95%.
+- **Integration tests** run in Docker: `scripts/test.sh` (Task 5). CI uses ubuntu-latest with Python 3.14. Coverage is at least 95%.
 - **API tests:** `dotnet test --verbosity quiet` from the API worktree root. Use the SQLite-backed integration test patterns already in `PrintLogApi.IntegrationTests/Sync/`.
 - **Commits:** never add a `Claude-Session:` trailer or a session link. "Co-Authored-By" is fine.
 
 ## Review Focus
 
-1. **A user's account has a printer with no name, no make and no connector.** The device is "Printer {id}", the connection sensor is unknown (not off), and setup doesn't crash. *Test owned by B2 and B7.*
-2. **An API key is revoked while HA is running.** The next poll raises `ConfigEntryAuthFailed` and reauth starts, and entities don't flap between unavailable and available. *B6.*
-3. **A print is deleted, or an older print is added by hand.** No `finished` or `failed` event fires. *B4.*
-4. **Untracked spools (`remainingGrams: null`).** The remaining sensor is unknown, not 0; filament-short is unknown; `adjust_remaining` raises a validation error locally without calling the API. *B7 and B9.*
-5. **HA restarts mid-print.** No duplicate `started` event; a finish that happened while HA was down fires once if it was within 60 minutes, and never otherwise. *B4 and B8.*
+1. **A user's account has a printer with no name, no make and no connector.** The device is "Printer {id}", the connection sensor is unknown (not off), and setup doesn't crash. *Test owned by Tasks 6 and 11.*
+2. **An API key is revoked while HA is running.** The next poll raises `ConfigEntryAuthFailed` and reauth starts, and entities don't flap between unavailable and available. *Task 10.*
+3. **A print is deleted, or an older print is added by hand.** No `finished` or `failed` event fires. *Task 8.*
+4. **Untracked spools (`remainingGrams: null`).** The remaining sensor is unknown, not 0; filament-short is unknown; `adjust_remaining` raises a validation error locally without calling the API. *Tasks 11 and 13.*
+5. **HA restarts mid-print.** No duplicate `started` event; a finish that happened while HA was down fires once if it was within 60 minutes, and never otherwise. *Tasks 8 and 12.*
 
 ---
 
 ## Track A: API (3d-print-log-api)
 
-Setup, done once by the A1 implementer:
+Setup, done once by the Task 1 implementer:
 
 ```bash
 cd /d/Development/github/3d-print-log-api && git fetch origin && git worktree add -b feat/236-ha-sync-fields ../3d-print-log-api-worktrees/236-ha-sync origin/main
@@ -51,7 +51,7 @@ cd /d/Development/github/3d-print-log-api && git fetch origin && git worktree ad
 
 Read `AGENTS.md` first, in particular "Integration polling" and the caching rules. The new fields must go into the cached core that `coreHash` covers, so the ETag follows them.
 
-### Task A1: Printer totals and maintenance in the snapshot
+### Task 1: Printer totals and maintenance in the snapshot
 
 **Files:**
 - Modify: `PrintLogApi/Models/DTOs/Sync/SyncSnapshot.cs`
@@ -76,9 +76,9 @@ Read `AGENTS.md` first, in particular "Integration polling" and the caching rule
 - [ ] **Step 4:** Run the whole suite with `dotnet test --verbosity quiet`. Expected: all pass.
 - [ ] **Step 5:** Commit: `feat(sync): print time and maintenance per printer in the snapshot (#236)`.
 
-### Task A2: Print source, url, per-slot estimates and month outcomes
+### Task 2: Print source, url, per-slot estimates and month outcomes
 
-**Files:** same DTO and service files as A1, plus their tests.
+**Files:** same DTO and service files as Task 1, plus their tests.
 
 **Interfaces:**
 - Produces:
@@ -104,7 +104,7 @@ Read `AGENTS.md` first, in particular "Integration polling" and the caching rule
 - [ ] **Step 4:** Run the full suite. Expected: all pass.
 - [ ] **Step 5:** Commit: `feat(sync): print source, url, slot estimates and month outcomes (#236)`.
 
-### Task A3: Filament adjustment and active endpoints
+### Task 3: Filament adjustment and active endpoints
 
 **Files:**
 - Modify: `PrintLogApi/Controllers/FilamentsController.cs`
@@ -136,7 +136,7 @@ Read `AGENTS.md` first, in particular "Integration polling" and the caching rule
 - [ ] **Step 4:** Run the full suite. Expected: all pass.
 - [ ] **Step 5:** Commit: `feat(filaments): adjustment and active endpoints for integrations (#236)`.
 
-### Task A4: Docs and PR
+### Task 4: Docs and PR
 
 - [ ] **Step 1:** Update `AGENTS.md` "Integration polling" (new fields, and the cache bump on the new endpoints), plus the OpenAPI annotations if the controller uses them.
 - [ ] **Step 2:** Run `dotnet build` and `dotnet test --verbosity quiet`. Expected: both green.
@@ -146,7 +146,7 @@ Read `AGENTS.md` first, in particular "Integration polling" and the caching rule
 
 ## Track B: integration (3d-print-log-homeassistant, worktree `v0.1`)
 
-### Task B1: Scaffold, test runner, CI, brand images
+### Task 5: Scaffold, test runner, CI, brand images
 
 **Files:**
 - Create: `custom_components/printlog/{__init__.py, manifest.json, const.py}`
@@ -181,7 +181,7 @@ Read `AGENTS.md` first, in particular "Integration polling" and the caching rule
   - Look at each PNG with the Read tool before committing.
 - [ ] **Step 7:** Commit: `chore: scaffold the printlog integration, test runner and CI`.
 
-### Task B2: Snapshot models (`models.py`)
+### Task 6: Snapshot models (`models.py`)
 
 **Files:** Create `custom_components/printlog/models.py`; test `tests/test_models.py`, with fixtures `tests/fixtures/snapshot_full.json` (every §3 field) and `tests/fixtures/snapshot_v1_17.json` (today's shape, without the §3 fields).
 
@@ -214,7 +214,7 @@ Read `AGENTS.md` first, in particular "Integration polling" and the caching rule
 - [ ] **Step 4:** Run it. Expected: PASS.
 - [ ] **Step 5:** Commit: `feat: snapshot models`.
 
-### Task B3: API client (`api.py`)
+### Task 7: API client (`api.py`)
 
 **Files:** Create `custom_components/printlog/api.py`; test `tests/test_api.py`.
 
@@ -256,12 +256,12 @@ Read `AGENTS.md` first, in particular "Integration polling" and the caching rule
 - [ ] **Step 4:** Run it. Expected: PASS.
 - [ ] **Step 5:** Commit: `feat: API client`.
 
-### Task B4: Event diff (`events.py`)
+### Task 8: Event diff (`events.py`)
 
 **Files:** Create `custom_components/printlog/events.py`; test `tests/test_events.py`.
 
 **Interfaces:**
-- Consumes: the `models` from B2.
+- Consumes: the `models` from Task 6.
 - Produces:
   - `PrinterEventState(seen: tuple[int, ...], current: int | None)`, with `to_dict()` and `from_dict()`.
   - `PrintEvent(printer_id: int, printer_name: str, status: str, print_id: int, title: str | None, started_at: datetime | None, finished_at: datetime | None, source: str | None, url: str | None)`.
@@ -286,7 +286,7 @@ Read `AGENTS.md` first, in particular "Integration polling" and the caching rule
 - [ ] **Step 4:** Run it. Expected: PASS.
 - [ ] **Step 5:** Commit: `feat: derive print events from snapshot changes`.
 
-### Task B5: Config flow and entry setup skeleton
+### Task 9: Config flow and entry setup skeleton
 
 **Files:**
 - Create: `custom_components/printlog/config_flow.py`, `translations/en.json` (the config and options sections)
@@ -294,10 +294,10 @@ Read `AGENTS.md` first, in particular "Integration polling" and the caching rule
 - Test: `tests/test_config_flow.py`, `tests/test_init.py`
 
 **Interfaces:**
-- Consumes: `PrintLogClient` and `normalized_host` from B3.
+- Consumes: `PrintLogClient` and `normalized_host` from Task 7.
 - Produces:
   - `PrintLogConfigFlow` (VERSION 1, MINOR_VERSION 1) and `PrintLogOptionsFlow`.
-  - `type PrintLogConfigEntry = ConfigEntry[PrintLogData]`, declared in `__init__.py`. `PrintLogData` is defined in B6; until then, a placeholder dataclass with `client` lives in `coordinator.py`.
+  - `type PrintLogConfigEntry = ConfigEntry[PrintLogData]`, declared in `__init__.py`. `PrintLogData` is defined in Task 10; until then, a placeholder dataclass with `client` lives in `coordinator.py`.
 
 - [ ] **Step 1: Write failing tests.**
   - The user step:
@@ -314,7 +314,7 @@ Read `AGENTS.md` first, in particular "Integration polling" and the caching rule
 - [ ] **Step 4:** Run it. Expected: PASS.
 - [ ] **Step 5:** Commit: `feat: config flow with reauth, reconfigure and options`.
 
-### Task B6: Coordinators, runtime data, repair, stale devices
+### Task 10: Coordinators, runtime data, repair, stale devices
 
 **Files:**
 - Create: `custom_components/printlog/coordinator.py`, `repairs.py`
@@ -322,17 +322,17 @@ Read `AGENTS.md` first, in particular "Integration polling" and the caching rule
 - Test: `tests/test_coordinator.py`
 
 **Interfaces:**
-- Consumes: B2 models, B3 client, B4 `diff`.
+- Consumes: Task 6 models, Task 7 client, Task 8 `diff`.
 - Produces:
   - `@dataclass PrintLogData(client: PrintLogClient, snapshot: SnapshotCoordinator, slow: SlowCoordinator, store: EventStore)`.
   - `SnapshotCoordinator(DataUpdateCoordinator[Snapshot])`, with `always_update=False` and `entry_uid: str`. It also provides:
-    - `async_add_event_listener(cb: Callable[[list[PrintEvent]], None]) -> Callable[[], None]`, which B8 consumes;
+    - `async_add_event_listener(cb: Callable[[list[PrintEvent]], None]) -> Callable[[], None]`, which Task 12 consumes;
     - `diagnostics() -> dict`.
   - `SlowCoordinator(DataUpdateCoordinator[dict])`.
   - `EventStore`, which wraps `Store` and provides `async_load() -> dict[int, PrinterEventState]`, `async_save_delayed(state)` and `async_remove()`.
   - `repairs.async_raise_unsupported_schema(hass, entry)` and `async_clear_unsupported_schema(hass, entry)`.
 
-- [ ] **Step 1: Write failing tests.** Use `freezer` and `aioclient_mock`; the fixtures come from B2.
+- [ ] **Step 1: Write failing tests.** Use `freezer` and `aioclient_mock`; the fixtures come from Task 6.
   - `test_first_refresh_fetches_snapshot`
   - `test_version_304_skips_snapshot`
   - `test_version_change_fetches_snapshot`
@@ -353,7 +353,7 @@ Read `AGENTS.md` first, in particular "Integration polling" and the caching rule
 - [ ] **Step 4:** Run it. Expected: PASS.
 - [ ] **Step 5:** Commit: `feat: snapshot and slow coordinators`.
 
-### Task B7: Entities: sensors and binary sensors
+### Task 11: Entities: sensors and binary sensors
 
 **Files:**
 - Create: `custom_components/printlog/entity.py`, `sensor.py`, `binary_sensor.py`, `icons.json`
@@ -361,7 +361,7 @@ Read `AGENTS.md` first, in particular "Integration polling" and the caching rule
 - Test: `tests/test_sensor.py`, `tests/test_binary_sensor.py`, plus syrupy snapshots in `tests/snapshots/`
 
 **Interfaces:**
-- Consumes: `PrintLogData`, `SnapshotCoordinator` and `SlowCoordinator` from B6, the models from B2.
+- Consumes: `PrintLogData`, `SnapshotCoordinator` and `SlowCoordinator` from Task 10, the models from Task 6.
 - Produces:
   - `PrintLogPrinterEntity(CoordinatorEntity[SnapshotCoordinator])`: takes `printer_id` and `key`, gets its unique id from spec §4.6, and has a `printer` property that returns `Printer | None`. It is available only when the coordinator succeeded **and** the printer is present.
   - `PrintLogSlotEntity(PrintLogPrinterEntity)`: takes `slot`.
@@ -387,7 +387,7 @@ Read `AGENTS.md` first, in particular "Integration polling" and the caching rule
 - [ ] **Step 4:** Run it. Expected: PASS. Update the syrupy snapshots with `--snapshot-update` once, then review the snapshot file by hand.
 - [ ] **Step 5:** Commit: `feat: printer, slot and account sensors`.
 
-### Task B8: Event entity and bus events
+### Task 12: Event entity and bus events
 
 **Files:**
 - Create: `custom_components/printlog/event.py`
@@ -395,7 +395,7 @@ Read `AGENTS.md` first, in particular "Integration polling" and the caching rule
 - Test: `tests/test_events_ha.py`
 
 **Interfaces:**
-- Consumes: `SnapshotCoordinator.async_add_event_listener` (B6), `PrintEvent` and `BUS_EVENT` (B4), the device registry.
+- Consumes: `SnapshotCoordinator.async_add_event_listener` (Task 10), `PrintEvent` and `BUS_EVENT` (Task 8), the device registry.
 - Produces: the event entity key `print`, and bus payloads per spec §6.3.
 
 - [ ] **Step 1: Write failing tests.**
@@ -409,7 +409,7 @@ Read `AGENTS.md` first, in particular "Integration polling" and the caching rule
 - [ ] **Step 4:** Run it. Expected: PASS.
 - [ ] **Step 5:** Commit: `feat: print event entity and bus events`.
 
-### Task B9: Actions (services)
+### Task 13: Actions (services)
 
 **Files:**
 - Create: `custom_components/printlog/services.py`, `services.yaml`
@@ -417,7 +417,7 @@ Read `AGENTS.md` first, in particular "Integration polling" and the caching rule
 - Test: `tests/test_services.py`
 
 **Interfaces:**
-- Consumes: `PrintLogData` (B6), the client (B3), the models (B2), and the entity registry, which maps a slot entity unique id to its printer id and slot (parse the §4.6 format).
+- Consumes: `PrintLogData` (Task 10), the client (Task 7), the models (Task 6), and the entity registry, which maps a slot entity unique id to its printer id and slot (parse the §4.6 format).
 - Produces: the services `printlog.adjust_remaining`, `printlog.set_spool_active` and `printlog.log_maintenance`, as in spec §7.
 
 - [ ] **Step 1: Write failing tests.**
@@ -440,7 +440,7 @@ Read `AGENTS.md` first, in particular "Integration polling" and the caching rule
 - [ ] **Step 4:** Run it. Expected: PASS.
 - [ ] **Step 5:** Commit: `feat: adjust remaining, set spool active and log maintenance actions`.
 
-### Task B10: Diagnostics, README, coverage gate
+### Task 14: Diagnostics, README, coverage gate
 
 **Files:**
 - Create: `custom_components/printlog/diagnostics.py`
@@ -463,7 +463,7 @@ Read `AGENTS.md` first, in particular "Integration polling" and the caching rule
 - [ ] **Step 5:** Run `scripts/test.sh --cov=custom_components.printlog --cov-report=term-missing --cov-fail-under=95` and `ruff check .`. Expected: PASS, with coverage at least 95%.
 - [ ] **Step 6:** Commit: `feat: diagnostics; docs: README and changelog`.
 
-### Task B11: Manual check in the dev Home Assistant
+### Task 15: Manual check in the dev Home Assistant
 
 - [ ] **Step 1:** Run the API worktree from Track A on port 5101 (`ASPNETCORE_URLS=http://0.0.0.0:5101`, in the background), against the Docker SQL Server on 1434. Create an API key for a test user.
 - [ ] **Step 2:** Copy `custom_components/printlog` to `D:\Development\homeassistant-dev\config\custom_components\printlog` and restart the `homeassistant-dev` container.
@@ -474,7 +474,7 @@ Read `AGENTS.md` first, in particular "Integration polling" and the caching rule
 - [ ] **Step 4:** Look at the screenshots. Check that icons match their meaning and that states read correctly. Stop the API by port when done.
 - [ ] **Step 5:** Fix whatever this turns up through the owning task's test-first loop. Record the results in the PR body.
 
-### Task B12: PRs
+### Task 16: PRs
 
 - [ ] **Step 1:** Push `feat/v0.1.0` and open a PR to `main` titled "feat: printlog Home Assistant integration v0.1.0 (api#236)". The body links the spec, the plan, the API PR and the screenshots.
 - [ ] **Step 2:** Watch CI with `gh pr checks <n> --watch` in the background, and fix any failures. hassfest and HACS validation must pass.
