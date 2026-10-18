@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
+from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 import pytest
+from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.common import MockConfigEntry, snapshot_platform
 from syrupy.assertion import SnapshotAssertion
 
 from custom_components.printlog.const import DOMAIN
@@ -43,42 +45,15 @@ def entity_id(hass: HomeAssistant, platform: str, suffix: str) -> str:
     return found
 
 
-def platform_snapshot(
-    hass: HomeAssistant, registry: er.EntityRegistry, entry: MockConfigEntry, platform: str
-) -> dict:
-    """Deterministic registry and state data of every entity of one platform.
-
-    HA's snapshot_platform serializes random ids (device, entity, entry), so the
-    comparison would never be stable for a custom integration.
-    """
-    result: dict = {}
-    for reg in sorted(
-        er.async_entries_for_config_entry(registry, entry.entry_id), key=lambda e: e.entity_id
-    ):
-        if reg.domain != platform:
-            continue
-        state = hass.states.get(reg.entity_id)
-        result[reg.entity_id] = {
-            "unique_id": reg.unique_id,
-            "translation_key": reg.translation_key,
-            "original_name": reg.original_name,
-            "original_device_class": str(reg.original_device_class),
-            "unit": reg.unit_of_measurement,
-            "device": next(iter(dr.async_get(hass).async_get(reg.device_id).identifiers))[1],
-            "state": state.state,
-            "attributes": dict(state.attributes),
-        }
-    return result
-
-
 async def test_entities_full_snapshot(
     hass: HomeAssistant,
     api: FakeApi,  # noqa: F811
     entity_registry: er.EntityRegistry,
     snapshot: SnapshotAssertion,
 ) -> None:
-    entry = await setup_entry(hass)
-    assert platform_snapshot(hass, entity_registry, entry, "sensor") == snapshot
+    with patch("custom_components.printlog.PLATFORMS", [Platform.SENSOR]):
+        entry = await setup_entry(hass)
+    await snapshot_platform(hass, entity_registry, snapshot, entry.entry_id)
 
 
 async def test_printer_101_states(hass: HomeAssistant, api: FakeApi) -> None:  # noqa: F811
@@ -210,6 +185,8 @@ async def test_extended_entities_added_when_fields_appear(
     ids = {e.unique_id for e in entity_registry.entities.values()}
     assert f"{UID}:printer:101:print_time" in ids
     assert f"{UID}:printer:101:last_maintenance" in ids
+    assert f"{UID}:printer:101:maintenance_due" in ids
+    assert f"{UID}:printer:101:slot:1:filament_short" in ids
     assert len(entity_registry.entities) > count
 
 
@@ -236,11 +213,16 @@ async def test_slot_entities_added_when_slot_count_grows(
         "binary_sensor", DOMAIN, f"{UID}:printer:102:slot:2:filament_short"
     )
     # Slot 1 keeps its entity (no duplicates).
-    assert [
-        e
-        for e in entity_registry.entities.values()
-        if e.unique_id == f"{UID}:printer:102:slot:1:filament"
-    ].__len__() == 1
+    assert (
+        len(
+            [
+                e
+                for e in entity_registry.entities.values()
+                if e.unique_id == f"{UID}:printer:102:slot:1:filament"
+            ]
+        )
+        == 1
+    )
 
 
 async def test_new_printer_gets_entities_and_missing_printer_unavailable(
@@ -379,8 +361,93 @@ async def test_device_info_configuration_url_only_for_production(
         ("not a url", False),
     ):
         fake = MockConfigEntry(domain=DOMAIN, unique_id=UID, data={"base_url": url})
-        info = printer_device_info(fake, printer)
+        info = printer_device_info(fake, printer, UID)
         assert ("configuration_url" in info) is expected, url
         assert info["identifiers"] == {(DOMAIN, f"{UID}:printer:101")}
     # The API key is never part of device info.
-    assert "secret-key" not in str(printer_device_info(make_entry(), printer))
+    assert "secret-key" not in str(printer_device_info(make_entry(), printer, UID))
+
+
+async def test_spool_swap_keeps_entity(hass: HomeAssistant, api: FakeApi) -> None:  # noqa: F811
+    entry = await setup_entry(hass)
+    before = entity_id(hass, "sensor", "printer:101:slot:1:filament")
+    assert hass.states.get(before).state == "Galaxy Black"
+
+    def swap(snapshot: dict) -> None:
+        spool = printer_of(snapshot, 101)["loaded"][0]
+        spool.update(
+            {
+                "spoolId": "99999999-9999-4999-8999-999999999999",
+                "spoolNumber": 9,
+                "name": "Fresh Blue",
+                "remainingGrams": 1000.0,
+            }
+        )
+
+    api.set_change("v2", '"s2"', swap)
+    await entry.runtime_data.snapshot.async_refresh()
+    await hass.async_block_till_done()
+    assert entity_id(hass, "sensor", "printer:101:slot:1:filament") == before
+    state = hass.states.get(before)
+    assert state.state == "Fresh Blue"
+    assert state.attributes["spool_number"] == 9
+    assert hass.states.get(entity_id(hass, "sensor", "printer:101:slot:1:remaining")).state == (
+        "1000.0"
+    )
+
+
+async def test_returning_printer_gets_entities_again(
+    hass: HomeAssistant,
+    api: FakeApi,  # noqa: F811
+    entity_registry: er.EntityRegistry,
+) -> None:
+    entry = await setup_entry(hass)
+    coordinator = entry.runtime_data.snapshot
+    full = json.loads(json.dumps(api.snapshot))
+
+    def drop(snapshot: dict) -> None:
+        snapshot["printers"] = [p for p in snapshot["printers"] if p["id"] != 102]
+
+    for version in ("v2", "v3"):
+        api.set_change(version, f'"{version}"', drop)
+        await coordinator.async_refresh()
+        await hass.async_block_till_done()
+    uid = f"{UID}:printer:102:current_print"
+    assert entity_registry.async_get_entity_id("sensor", DOMAIN, uid) is None
+    assert (
+        dr.async_get(hass).async_get_device_by_identifier(
+            (DOMAIN, f"{UID}:printer:102"), entry.entry_id
+        )
+        is None
+    )
+
+    api.set_change("v4", '"v4"', lambda s: s.update(printers=full["printers"]))
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+    assert entity_registry.async_get_entity_id("sensor", DOMAIN, uid)
+    assert entity_registry.async_get_entity_id(
+        "binary_sensor", DOMAIN, f"{UID}:printer:102:printing"
+    )
+
+
+async def test_device_updated_when_printer_renamed(
+    hass: HomeAssistant,
+    api: FakeApi,  # noqa: F811
+) -> None:
+    entry = await setup_entry(hass)
+    registry = dr.async_get(hass)
+
+    def rename(snapshot: dict) -> None:
+        printer = printer_of(snapshot, 101)
+        printer["name"] = "Workshop U1"
+        printer["model"] = "U1 Pro"
+        printer_of(snapshot, 102)["name"] = "Ender"
+
+    api.set_change("v2", '"s2"', rename)
+    await entry.runtime_data.snapshot.async_refresh()
+    await hass.async_block_till_done()
+    device = registry.async_get_device_by_identifier((DOMAIN, f"{UID}:printer:101"), entry.entry_id)
+    assert device.name == "Workshop U1"
+    assert device.model == "U1 Pro"
+    other = registry.async_get_device_by_identifier((DOMAIN, f"{UID}:printer:102"), entry.entry_id)
+    assert other.name == "Ender"

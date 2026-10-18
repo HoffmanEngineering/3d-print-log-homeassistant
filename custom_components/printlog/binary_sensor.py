@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
+from datetime import datetime
+from functools import partial
 from typing import Any
 
 from homeassistant.components.binary_sensor import (
@@ -11,13 +13,15 @@ from homeassistant.components.binary_sensor import (
     BinarySensorEntity,
     BinarySensorEntityDescription,
 )
-from homeassistant.core import HomeAssistant
+from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.helpers.event import async_track_point_in_utc_time
 from homeassistant.util import dt as dt_util
 
 from . import PrintLogConfigEntry
 from .coordinator import SnapshotCoordinator
 from .entity import (
+    EntitySpec,
     PrintLogPrinterEntity,
     PrintLogSlotEntity,
     async_add_printer_entities,
@@ -143,14 +147,23 @@ async def async_setup_entry(
 ) -> None:
     """Set up the binary sensors."""
 
-    def build(coordinator: SnapshotCoordinator, printer: Printer):
+    def build(coordinator: SnapshotCoordinator, printer: Printer) -> Iterator[EntitySpec]:
         for description in PRINTER_BINARY_SENSORS:
             if description.exists_fn(printer):
-                yield PrinterBinarySensor(coordinator, printer.id, description)
+                cls = (
+                    MaintenanceDueBinarySensor
+                    if description.key == "maintenance_due"
+                    else PrinterBinarySensor
+                )
+                yield (description.key, None, partial(cls, coordinator, printer.id, description))
         for slot in slot_numbers(printer):
             for slot_description in SLOT_BINARY_SENSORS:
                 if slot_description.exists_fn(printer):
-                    yield SlotBinarySensor(coordinator, printer.id, slot_description, slot)
+                    yield (
+                        slot_description.key,
+                        slot,
+                        partial(SlotBinarySensor, coordinator, printer.id, slot_description, slot),
+                    )
 
     async_add_printer_entities(entry, async_add_entities, build)
 
@@ -187,3 +200,45 @@ class SlotBinarySensor(PrintLogSlotEntity, BinarySensorEntity):
         printer = self.printer
         fn = self.entity_description.attrs_fn
         return fn(printer, self.slot) if printer and fn else None
+
+
+class MaintenanceDueBinarySensor(PrinterBinarySensor):
+    """Maintenance due, flipped by a timer at the next due date.
+
+    The coordinator doesn't notify listeners when the snapshot is unchanged, so
+    the state would otherwise stay "off" after the due date passes.
+    """
+
+    _unsub_timer: CALLBACK_TYPE | None = None
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        self.async_on_remove(self._cancel_timer)
+        self._schedule()
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        self._schedule()
+        super()._handle_coordinator_update()
+
+    @callback
+    def _cancel_timer(self) -> None:
+        if self._unsub_timer is not None:
+            self._unsub_timer()
+            self._unsub_timer = None
+
+    @callback
+    def _schedule(self) -> None:
+        self._cancel_timer()
+        printer = self.printer
+        open_maintenance = printer.open_maintenance if printer else None
+        if open_maintenance is None or open_maintenance.count <= 0:
+            return
+        next_date = open_maintenance.next_date
+        if next_date is not None and next_date > dt_util.utcnow():
+            self._unsub_timer = async_track_point_in_utc_time(self.hass, self._fire, next_date)
+
+    @callback
+    def _fire(self, _now: datetime) -> None:
+        self._unsub_timer = None
+        self.async_write_ha_state()

@@ -61,9 +61,9 @@
         }
       },
       "slot_filament_short": {
-        "default": "mdi:spool",
+        "default": "mdi:printer-3d-nozzle-outline",
         "state": {
-          "on": "mdi:spool-off"
+          "on": "mdi:printer-3d-nozzle-alert"
         }
       }
     }

@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from unittest.mock import patch
 
 import pytest
+from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
+from pytest_homeassistant_custom_component.common import async_fire_time_changed, snapshot_platform
 from syrupy.assertion import SnapshotAssertion
 
 from .test_coordinator import NOW, FakeApi, api, setup_entry  # noqa: F401
-from .test_sensor import entity_id, platform_snapshot, printer_of
+from .test_sensor import entity_id, printer_of
 
 
 @pytest.fixture(autouse=True)
@@ -28,8 +31,9 @@ async def test_binary_sensors_full_snapshot(
     entity_registry: er.EntityRegistry,
     snapshot: SnapshotAssertion,
 ) -> None:
-    entry = await setup_entry(hass)
-    assert platform_snapshot(hass, entity_registry, entry, "binary_sensor") == snapshot
+    with patch("custom_components.printlog.PLATFORMS", [Platform.BINARY_SENSOR]):
+        entry = await setup_entry(hass)
+    await snapshot_platform(hass, entity_registry, snapshot, entry.entry_id)
 
 
 async def test_binary_sensor_states(hass: HomeAssistant, api: FakeApi) -> None:  # noqa: F811
@@ -138,3 +142,26 @@ async def test_maintenance_due_evaluated_on_update(
     await entry.runtime_data.snapshot.async_refresh()
     await hass.async_block_till_done()
     assert bstate(hass, "printer:101:maintenance_due").state == "on"
+
+
+async def test_maintenance_due_flips_with_time_and_no_data_change(
+    hass: HomeAssistant,
+    api: FakeApi,  # noqa: F811
+    freezer,
+) -> None:
+    printer_of(api.snapshot, 101)["openMaintenance"] = {
+        "count": 1,
+        "nextDate": "2026-10-17T16:00:00+00:00",
+    }
+    entry = await setup_entry(hass)
+    assert bstate(hass, "printer:101:maintenance_due").state == "off"
+
+    freezer.move_to(NOW + timedelta(hours=1, minutes=1))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    assert bstate(hass, "printer:101:maintenance_due").state == "on"
+
+    # The snapshot was unchanged (a 304), so only the timer could flip the state.
+    # Unloading cancels the pending timer cleanly.
+    await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()

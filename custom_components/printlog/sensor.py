@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from datetime import datetime
+from functools import partial
 from typing import Any
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -22,8 +22,9 @@ from homeassistant.helpers.typing import StateType
 from homeassistant.util import dt as dt_util
 
 from . import PrintLogConfigEntry
-from .coordinator import SnapshotCoordinator
+from .coordinator import SlowCoordinator, SnapshotCoordinator
 from .entity import (
+    EntitySpec,
     PrintLogAccountEntity,
     PrintLogPrinterEntity,
     PrintLogSlotEntity,
@@ -261,10 +262,8 @@ ACCOUNT_SENSORS: tuple[AccountSensorDescription, ...] = (
 
 def month_start(account: Account) -> datetime | None:
     """The start of `account.month` in `account.time_zone`."""
-    try:
-        zone: Any = ZoneInfo(account.time_zone)
-    except ZoneInfoNotFoundError, ValueError, OSError:
-        zone = dt_util.get_default_time_zone()
+    # get_time_zone caches, so the zone file is read only once.
+    zone = dt_util.get_time_zone(account.time_zone) or dt_util.get_default_time_zone()
     try:
         year, month = account.month.split("-")
         return datetime(int(year), int(month), 1, tzinfo=zone)
@@ -279,14 +278,22 @@ async def async_setup_entry(
 ) -> None:
     """Set up the sensors."""
 
-    def build(coordinator: SnapshotCoordinator, printer: Printer):
+    def build(coordinator: SnapshotCoordinator, printer: Printer) -> Iterator[EntitySpec]:
         for description in PRINTER_SENSORS:
             if description.exists_fn(printer):
-                yield PrinterSensor(coordinator, printer.id, description)
+                yield (
+                    description.key,
+                    None,
+                    partial(PrinterSensor, coordinator, printer.id, description),
+                )
         for slot in slot_numbers(printer):
             for slot_description in SLOT_SENSORS:
                 if slot_description.exists_fn(printer):
-                    yield SlotSensor(coordinator, printer.id, slot_description, slot)
+                    yield (
+                        slot_description.key,
+                        slot,
+                        partial(SlotSensor, coordinator, printer.id, slot_description, slot),
+                    )
 
     async_add_printer_entities(entry, async_add_entities, build)
 
@@ -357,7 +364,7 @@ class AccountMonthSensor(PrintLogAccountEntity, SensorEntity):
 class UnreadNotificationsSensor(PrintLogAccountEntity, SensorEntity):
     """Unread notifications, from the slow coordinator."""
 
-    def __init__(self, coordinator, entry: PrintLogConfigEntry) -> None:
+    def __init__(self, coordinator: SlowCoordinator, entry: PrintLogConfigEntry) -> None:
         super().__init__(
             coordinator,
             entry,
