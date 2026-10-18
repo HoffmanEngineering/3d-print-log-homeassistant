@@ -124,14 +124,18 @@ def _pick_entry(hass: HomeAssistant, entry_id: str | None) -> ConfigEntry:
     return entries[0]
 
 
-def _resolve_slot_entity(hass: HomeAssistant, entity_id: str) -> tuple[ConfigEntry, int, int]:
-    """(entry, printer id, slot) of a printlog slot_filament or slot_remaining sensor."""
+def _resolve_slot_entity(
+    hass: HomeAssistant, entity_id: str, entry_id: str | None
+) -> tuple[ConfigEntry, int, int]:
+    """(entry, printer id, HA slot) of a printlog slot_filament or slot_remaining sensor."""
     reg_entry = er.async_get(hass).async_get(entity_id)
     if reg_entry is None or reg_entry.platform != DOMAIN or not reg_entry.unique_id:
         raise _error("invalid_slot_entity")
     match = _SLOT_UNIQUE_ID.search(reg_entry.unique_id)
     if match is None or reg_entry.config_entry_id is None:
         raise _error("invalid_slot_entity")
+    if entry_id and entry_id != reg_entry.config_entry_id:
+        raise _error("device_entry_mismatch")
     return (
         _entry_by_id(hass, reg_entry.config_entry_id),
         int(match.group(1)),
@@ -160,7 +164,9 @@ def _resolve_spool(hass: HomeAssistant, data: dict[str, Any]) -> tuple[ConfigEnt
     if len(chosen) != 1:
         raise _error("spool_choice")
     if ATTR_ENTITY_ID in data:
-        entry, printer_id, slot = _resolve_slot_entity(hass, data[ATTR_ENTITY_ID])
+        entry, printer_id, slot = _resolve_slot_entity(
+            hass, data[ATTR_ENTITY_ID], data.get(ATTR_CONFIG_ENTRY_ID)
+        )
         snapshot = entry.runtime_data.snapshot.data
         return entry, _spool_id_from_slot(snapshot, printer_id, slot)
     entry = _pick_entry(hass, data.get(ATTR_CONFIG_ENTRY_ID))
@@ -173,14 +179,17 @@ def _resolve_spool(hass: HomeAssistant, data: dict[str, Any]) -> tuple[ConfigEnt
     return entry, data[ATTR_SPOOL_ID]
 
 
-async def _call[T](awaitable: Awaitable[T]) -> T:
-    """Await an API call, mapping client errors to translated Home Assistant errors."""
+async def _call[T](awaitable: Awaitable[T], not_found: str = "spool_not_found") -> T:
+    """Await an API call, mapping client errors to translated Home Assistant errors.
+
+    `not_found` is the translation key of a 404, which depends on what the call targets.
+    """
     try:
         return await awaitable
     except PrintLogValidationError as err:
         raise _error("api_validation", message=str(err)) from err
     except PrintLogNotFoundError as err:
-        raise _error("spool_not_found") from err
+        raise _error(not_found) from err
     except PrintLogUnsupportedError as err:
         raise HomeAssistantError(translation_domain=DOMAIN, translation_key="api_too_old") from err
     except PrintLogAuthError as err:
@@ -262,7 +271,8 @@ async def _async_log_maintenance(call: ServiceCall) -> dict[str, Any]:
             data.get(ATTR_CATEGORY),
             data[ATTR_DESCRIPTION],
             data.get(ATTR_NOTES),
-        )
+        ),
+        not_found="printer_not_found",
     )
     await entry.runtime_data.snapshot.async_request_refresh()
     return {"maintenance_id": result.get("id")}

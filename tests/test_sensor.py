@@ -149,6 +149,17 @@ async def test_month_totals_unknown_zone_falls_back(
     )
 
 
+async def test_long_text_states_truncated(hass: HomeAssistant, api: FakeApi) -> None:  # noqa: F811
+    printer = printer_of(api.snapshot, 101)
+    printer["currentPrint"]["title"] = "T" * 300
+    printer["loaded"][0]["name"] = "N" * 300
+    await setup_entry(hass)
+    current = hass.states.get(entity_id(hass, "sensor", "printer:101:current_print"))
+    assert current.state == "T" * 255
+    filament = hass.states.get(entity_id(hass, "sensor", "printer:101:slot:1:filament"))
+    assert filament.state == "N" * 255
+
+
 async def test_last_reset_does_no_zone_lookup(hass: HomeAssistant, api: FakeApi) -> None:  # noqa: F811
     """The account zone is resolved off the event loop and cached; last_reset only reads it."""
     entry = await setup_entry(hass)

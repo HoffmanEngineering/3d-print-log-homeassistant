@@ -233,3 +233,20 @@ async def test_options_uses_saved_value_as_default(hass: HomeAssistant) -> None:
     result = await hass.config_entries.options.async_init(entry.entry_id)
     key = next(k for k in result["data_schema"].schema if k == "scan_interval")
     assert key.default() == 90
+
+
+async def test_api_key_never_logged(hass: HomeAssistant, aioclient_mock, caplog) -> None:
+    caplog.set_level("DEBUG")
+    aioclient_mock.get(ME_URL, status=401)
+    result = await start_user(hass, {"base_url": BASE, "api_key": KEY})
+    assert result["errors"] == {"base": "invalid_auth"}
+    with patch(
+        "custom_components.printlog.config_flow.PrintLogClient.get_me",
+        side_effect=RuntimeError("boom"),
+    ):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"base_url": BASE, "api_key": KEY}
+        )
+    assert result["errors"] == {"base": "unknown"}
+    assert caplog.records
+    assert KEY not in caplog.text

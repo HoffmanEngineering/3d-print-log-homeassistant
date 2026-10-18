@@ -15,7 +15,7 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.const import UnitOfMass, UnitOfTime
+from homeassistant.const import MAX_LENGTH_STATE_STATE, UnitOfMass, UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.typing import StateType
@@ -41,6 +41,11 @@ LAST_PRINT_RESULTS = ["success", "failed", "canceled", "partial_success"]
 
 def _iso(value: datetime | None) -> str | None:
     return value.isoformat() if value else None
+
+
+def _truncate(value: str) -> str:
+    """Home Assistant rejects a state longer than 255 characters."""
+    return value[:MAX_LENGTH_STATE_STATE]
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -73,7 +78,7 @@ def _current_print_state(printer: Printer) -> str | None:
     current = printer.current_print
     if current is None:
         return None
-    return current.title or "Untitled"
+    return _truncate(current.title or "Untitled")
 
 
 def _current_print_attrs(printer: Printer) -> dict[str, Any]:
@@ -130,7 +135,7 @@ def _slot_filament_state(printer: Printer, slot: int) -> str | None:
     spool = printer.loaded_in_slot(slot)
     if spool is None:
         return None
-    return spool.name or spool.material or f"Spool #{spool.spool_number}"
+    return _truncate(spool.name or spool.material or f"Spool #{spool.spool_number}")
 
 
 def _slot_filament_attrs(printer: Printer, slot: int) -> dict[str, Any]:

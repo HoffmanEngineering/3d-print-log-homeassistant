@@ -46,7 +46,7 @@
       "already_configured": "This 3D Print Log account is already configured for this API URL.",
       "reauth_successful": "Reauthentication succeeded.",
       "reconfigure_successful": "The configuration was updated.",
-      "wrong_account": "That API key or URL belongs to a different account. Use one for the account you originally set up."
+      "wrong_account": "That API key or URL is for a different account or API host. Use one for the account and host you originally set up."
     }
   },
   "entity": {
@@ -250,6 +250,9 @@
     "spool_not_found": {
       "message": "3D Print Log has no such spool."
     },
+    "printer_not_found": {
+      "message": "3D Print Log has no such printer. It may have been deleted."
+    },
     "spool_untracked": {
       "message": "That spool doesn't track its remaining amount, so it can't be adjusted."
     },
@@ -281,7 +284,7 @@
       "message": "Choose a 3D Print Log printer device."
     },
     "device_entry_mismatch": {
-      "message": "That printer belongs to a different 3D Print Log account than config_entry_id."
+      "message": "That printer or slot sensor belongs to a different 3D Print Log account than config_entry_id."
     },
     "maintenance_id_unsupported": {
       "message": "maintenance_id is not supported yet."

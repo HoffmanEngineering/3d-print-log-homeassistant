@@ -800,3 +800,25 @@ async def test_diagnostics_keeps_last_error_after_recovery(
     assert diag["last_update_success"] is True
     assert "PrintLogConnectionError" in diag["last_error"]
     assert diag["last_error_at"] == NOW.isoformat()
+
+
+async def test_api_key_never_logged(hass: HomeAssistant, api: FakeApi, caplog) -> None:
+    """Setup, a refresh error, a failed snapshot and a rejected key: the key is never logged."""
+    caplog.set_level(logging.DEBUG)
+    entry = await setup_entry(hass)
+    coordinator = entry.runtime_data.snapshot
+
+    api.version_status = 500
+    await coordinator.async_refresh()
+    api.version_status = 200
+    api.set_change("v2", '"s2"')
+    api.snapshot_status = 502
+    await coordinator.async_refresh()
+    api.snapshot_status = 200
+    api.version_status = 401
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+
+    assert caplog.records
+    assert any(r.levelno >= logging.WARNING for r in caplog.records)
+    assert "secret-key" not in caplog.text

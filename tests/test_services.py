@@ -481,19 +481,50 @@ async def test_log_maintenance_device_entry_mismatch(hass: HomeAssistant, api: F
     assert posts(api) == []
 
 
-async def test_entity_entry_overrides_config_entry_id(hass: HomeAssistant, api: FakeApi) -> None:  # noqa: F811
-    api.mock.post(ADJ_URL, json={"beforeGrams": 1.0, "afterGrams": 2.0})
+@pytest.mark.parametrize(
+    ("service", "extra"),
+    [("adjust_remaining", {"amount": 1}), ("set_spool_active", {"active": False})],
+)
+async def test_entity_entry_conflicting_config_entry_id(
+    hass: HomeAssistant,
+    api: FakeApi,  # noqa: F811
+    service: str,
+    extra: dict,
+) -> None:
     first = await setup_entry(hass)
     other = make_entry(unique_id="api.3dprintlog.com:43")
     other.add_to_hass(hass)
     ent = entity_id(hass, "sensor", "printer:101:slot:1:remaining")
     assert er.async_get(hass).async_get(ent).config_entry_id == first.entry_id
+    with pytest.raises(ServiceValidationError) as err:
+        await call(hass, service, {"entity_id": ent, "config_entry_id": other.entry_id, **extra})
+    assert err.value.translation_key == "device_entry_mismatch"
+    assert not [c for c in api.mock.mock_calls if c[0] in ("POST", "PUT")]
+
+
+async def test_entity_with_matching_config_entry_id(hass: HomeAssistant, api: FakeApi) -> None:  # noqa: F811
+    api.mock.post(ADJ_URL, json={"beforeGrams": 1.0, "afterGrams": 2.0})
+    first = await setup_entry(hass)
+    ent = entity_id(hass, "sensor", "printer:101:slot:1:remaining")
     await call(
         hass,
         "adjust_remaining",
-        {"entity_id": ent, "amount": 1, "config_entry_id": other.entry_id},
+        {"entity_id": ent, "amount": 1, "config_entry_id": first.entry_id},
     )
     assert len(bodies(api, "POST", ADJ_URL)) == 1
+
+
+async def test_log_maintenance_deleted_printer_404(hass: HomeAssistant, api: FakeApi) -> None:  # noqa: F811
+    api.mock.post(MAINT_URL, status=404, json={"code": "printer_not_found"})
+    await setup_entry(hass)
+    with pytest.raises(ServiceValidationError) as err:
+        await call(
+            hass,
+            "log_maintenance",
+            {"device_id": printer_device_id(hass, 101), "description": "x"},
+        )
+    assert err.value.translation_key == "printer_not_found"
+    assert "printer" in str(err.value)
 
 
 async def test_no_loaded_entry(hass: HomeAssistant) -> None:
