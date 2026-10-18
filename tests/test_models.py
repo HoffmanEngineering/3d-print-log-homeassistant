@@ -143,7 +143,7 @@ def test_loaded_in_slot_unslotted_single_slot_occupied():
     data = load("snapshot_full.json")
     p = data["printers"][1]
     slotted = copy.deepcopy(p["loaded"][0])
-    slotted["slot"] = 1
+    slotted["slot"] = 0  # API slot 0 (T0) = HA slot 1
     slotted["spoolNumber"] = 3
     p["loaded"].insert(0, slotted)
     printer = Snapshot.from_json(data).printers[1]
@@ -166,6 +166,104 @@ def test_loaded_in_slot_multi_slot_without_slot_one():
     p = Snapshot.from_json(data).printers[0]
     assert p.loaded_in_slot(1) is None
     assert len(p.unslotted()) == 1
+
+
+def _spool(slot, number, label=None):
+    return {
+        "slot": slot,
+        "slotLabel": label,
+        "spoolId": f"{number:08d}-0000-4000-8000-000000000000",
+        "spoolNumber": number,
+        "name": f"Spool {number}",
+        "remainingGrams": 100.0 * number,
+    }
+
+
+def _printer(slot_count, loaded, filament=None):
+    current = None
+    if filament is not None:
+        current = {"id": 1, "filament": filament}
+    return Snapshot.from_json(
+        {
+            "schemaVersion": 1,
+            "version": "v",
+            "printers": [
+                {"id": 1, "slotCount": slot_count, "loaded": loaded, "currentPrint": current}
+            ],
+            "account": {"month": "2026-10", "timeZone": "UTC", "printCount": 0, "grams": 0},
+        }
+    ).printers[0]
+
+
+def test_api_slots_are_zero_based():
+    """Ruling R11: API slot s is HA slot s + 1."""
+    p = _printer(1, [_spool(0, 1, "T0")], [{"slot": 0, "estimatedGrams": 5.0}])
+    assert p.loaded[0].slot == 1
+    assert p.current_print.filament[0].slot == 1
+    assert p.loaded_in_slot(1).spool_number == 1
+    assert p.estimated_grams_in_slot(1) == 5.0
+
+
+def test_single_slot_spool_at_api_slot_zero_is_slot_one():
+    p = _printer(1, [_spool(0, 1, "T0")])
+    assert p.loaded_in_slot(1).spool_number == 1
+    assert p.loaded_in_slot(2) is None
+    assert p.unslotted() == ()
+
+
+def test_multi_slot_api_zero_to_three():
+    loaded = [_spool(s, s + 1, f"T{s}") for s in range(4)]
+    p = _printer(4, loaded)
+    assert p.loaded_in_slot(1).slot_label == "T0"
+    assert p.loaded_in_slot(4).slot_label == "T3"
+    assert p.loaded_in_slot(5) is None
+    assert p.loaded_in_slot(0) is None
+
+
+def test_null_slot_on_single_slot_printer_is_slot_one():
+    p = _printer(1, [_spool(None, 1)], [{"slot": None, "estimatedGrams": 7.0}])
+    assert p.loaded_in_slot(1).spool_number == 1
+    assert p.estimated_grams_in_slot(1) == 7.0
+    assert p.estimated_grams_in_slot(2) is None
+
+
+def test_null_slot_not_promoted_over_api_slot_zero():
+    p = _printer(
+        1,
+        [_spool(0, 1), _spool(None, 2)],
+        [{"slot": None, "estimatedGrams": 7.0}, {"slot": 0, "estimatedGrams": 3.0}],
+    )
+    assert p.loaded_in_slot(1).spool_number == 1
+    assert [s.spool_number for s in p.unslotted()] == [2]
+    # The slotted estimate wins over the unslotted one, as the spool does.
+    assert p.estimated_grams_in_slot(1) == 3.0
+
+
+def test_null_slot_estimate_on_multi_slot_printer_is_not_slot_one():
+    p = _printer(4, [_spool(0, 1)], [{"slot": None, "estimatedGrams": 7.0}])
+    assert p.estimated_grams_in_slot(1) is None
+
+
+def test_two_unslotted_spools():
+    single = _printer(1, [_spool(None, 1), _spool(None, 2)])
+    assert single.loaded_in_slot(1).spool_number == 1
+    assert [s.spool_number for s in single.unslotted()] == [2]
+    multi = _printer(4, [_spool(None, 1), _spool(None, 2)])
+    assert multi.loaded_in_slot(1) is None
+    assert [s.spool_number for s in multi.unslotted()] == [1, 2]
+
+
+def test_estimate_at_api_slot_zero_matches_ha_slot_one():
+    p = Snapshot.from_json(load("snapshot_full.json")).printers[0]
+    assert p.estimated_grams_in_slot(1) == 18.5
+    assert p.estimated_grams_in_slot(2) is None
+    assert p.estimated_grams_in_slot(3) == 4.25
+    assert p.loaded_in_slot(3).slot_label == "T2"
+
+
+def test_no_current_print_no_estimate():
+    p = _printer(1, [_spool(0, 1)])
+    assert p.estimated_grams_in_slot(1) is None
 
 
 def test_equality():

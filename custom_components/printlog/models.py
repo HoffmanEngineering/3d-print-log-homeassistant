@@ -22,6 +22,15 @@ def _strs(value: Any) -> tuple[str, ...]:
     return tuple(value or ())
 
 
+def _ha_slot(value: Any) -> int | None:
+    """Map an API slot to a Home Assistant slot (Ruling R11).
+
+    The API's slots are 0-based (T0 is slot 0). Home Assistant's run 1..N, so
+    API slot s is HA slot s + 1. Null (no slot) stays None.
+    """
+    return None if value is None else int(value) + 1
+
+
 @dataclass(frozen=True, slots=True)
 class Connection:
     """A printer connector's health."""
@@ -36,7 +45,7 @@ class Connection:
 
 @dataclass(frozen=True, slots=True)
 class PrintFilament:
-    """One filament row of the current print."""
+    """One filament row of the current print. `slot` is the HA slot (API slot + 1)."""
 
     slot: int | None
     spool_id: str | None
@@ -45,7 +54,7 @@ class PrintFilament:
     @classmethod
     def from_json(cls, d: dict) -> PrintFilament:
         return cls(
-            slot=d.get("slot"),
+            slot=_ha_slot(d.get("slot")),
             spool_id=d.get("spoolId"),
             estimated_grams=d.get("estimatedGrams"),
         )
@@ -105,7 +114,7 @@ class FinishedPrint:
 
 @dataclass(frozen=True, slots=True)
 class LoadedSpool:
-    """A spool currently loaded on a printer."""
+    """A spool currently loaded on a printer. `slot` is the HA slot (API slot + 1)."""
 
     slot: int | None
     slot_label: str | None
@@ -120,7 +129,7 @@ class LoadedSpool:
     @classmethod
     def from_json(cls, d: dict) -> LoadedSpool:
         return cls(
-            slot=d.get("slot"),
+            slot=_ha_slot(d.get("slot")),
             slot_label=d.get("slotLabel"),
             spool_id=d["spoolId"],
             spool_number=d.get("spoolNumber"),
@@ -209,20 +218,36 @@ class Printer:
     def display_name(self) -> str:
         return self.name or f"Printer {self.id}"
 
+    @property
+    def single_slot(self) -> bool:
+        return self.slot_count <= 1
+
     def _promoted(self) -> LoadedSpool | None:
         # Spec 5.1: on a single-slot printer, an unslotted spool counts as
-        # slot 1 when slot 1 is otherwise empty.
-        if self.slot_count > 1 or any(s.slot == 1 for s in self.loaded):
+        # HA slot 1 when slot 1 is otherwise empty. The same rule applies to
+        # the current print's estimate rows (estimated_grams_in_slot).
+        if not self.single_slot or any(s.slot == 1 for s in self.loaded):
             return None
         return next((s for s in self.loaded if s.slot is None), None)
 
     def loaded_in_slot(self, n: int) -> LoadedSpool | None:
+        """The spool in HA slot n (1-based)."""
         for spool in self.loaded:
             if spool.slot == n:
                 return spool
         if n == 1:
             return self._promoted()
         return None
+
+    def estimated_grams_in_slot(self, n: int) -> float | None:
+        """The running print's estimate for HA slot n, with the same null-slot rule."""
+        current = self.current_print
+        if current is None:
+            return None
+        row = next((f for f in current.filament if f.slot == n), None)
+        if row is None and n == 1 and self.single_slot:
+            row = next((f for f in current.filament if f.slot is None), None)
+        return row.estimated_grams if row is not None else None
 
     def unslotted(self) -> tuple[LoadedSpool, ...]:
         promoted = self._promoted()

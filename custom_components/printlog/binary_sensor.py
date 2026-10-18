@@ -76,18 +76,10 @@ def _connection_state(printer: Printer) -> bool | None:
 
 
 def _slot_numbers_for_print(printer: Printer, slot: int) -> tuple[float | None, float | None]:
-    """Return (estimated_grams, remaining_grams) for a slot of the current print."""
-    current = printer.current_print
-    if current is None:
+    """Return (estimated_grams, remaining_grams) for HA slot `slot` of the current print."""
+    if printer.current_print is None:
         return None, None
-    estimate = next(
-        (
-            row.estimated_grams
-            for row in current.filament
-            if row.slot == slot or (row.slot is None and slot == 1 and printer.slot_count <= 1)
-        ),
-        None,
-    )
+    estimate = printer.estimated_grams_in_slot(slot)
     spool = printer.loaded_in_slot(slot)
     return estimate, spool.remaining_grams if spool else None
 

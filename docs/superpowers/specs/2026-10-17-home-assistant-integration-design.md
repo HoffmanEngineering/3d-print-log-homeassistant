@@ -48,7 +48,7 @@ Live printer state (temperatures, progress, camera) stays with the printer integ
 | `source` | `string` | `Print.Source` as snake_case: `unknown`, `web`, `slicer_plugin`, `octoprint`, `moonraker`, `mcp`, `api_key`. |
 | `url` | `string?` | `{Email:WebBaseUrl}/prints/{id}`, the rule the webhooks use (`WebhookDeliveryProcessor.cs:285-295`). Null when `WebBaseUrl` is unset. |
 
-**`SyncCurrentPrint`** also gains `filament`. It is an array of `{ slot: int?, spoolId: Guid?, estimatedGrams: double? }`: the current print's `PrintFilament` rows, with `EstimatedAmountMg / 1000` rounded to 0.1 g. It is in slot order, with no-slot rows last, and is empty when the print has none.
+**`SyncCurrentPrint`** also gains `filament`. It is an array of `{ slot: int?, spoolId: Guid?, estimatedGrams: double? }`: the current print's `PrintFilament` rows, with `EstimatedAmountMg / 1000` rounded to 0.1 g. It is in slot order, with no-slot rows last, and is empty when the print has none. Like `loaded[].slot`, `slot` is 0-based (T0 = slot 0, valid 0 to `slotCount - 1`); the integration maps it to HA slot `slot + 1` (§5.1).
 
 ### 3.3 `SyncAccountTotals` additions
 
@@ -201,7 +201,7 @@ The account device is never removed.
 | Slot entity unique id | `f"{entry_uid}:printer:{printer_id}:slot:{n}:{key}"` |
 | Account entity unique id | `f"{entry_uid}:account:{key}"` |
 
-Slot entities are keyed on the slot number, never on the spool, so swapping a spool keeps the entity and its history. Every `key` is specific (`last_maintenance`, never `maintenance`).
+Slot entities are keyed on the HA slot number `n` (1-based: API slot + 1, see §5.1), never on the spool, so swapping a spool keeps the entity and its history. Every `key` is specific (`last_maintenance`, never `maintenance`).
 
 ## 5. Entities
 
@@ -240,8 +240,9 @@ Every entity sets `has_entity_name = True` and a `translation_key`, has its icon
 | `last_maintenance` | sensor / timestamp | `lastMaintenance.date` | `category`, `description` |
 
 **Slots.**
-- **How many:** slots run 1 to `max(slotCount, 1)`. Slot sensors are created for every slot number at setup, and again when `slotCount` grows (new entities are added on refresh).
-- **Unslotted spools:** a loaded spool with `slot = null` counts as slot 1 when `slotCount <= 1` and slot 1 is otherwise empty. In every other case, unslotted spools are listed in the `unslotted` attribute of `slot_1_filament`.
+- **Numbering (Ruling R11):** the API's slots are 0-based: T0 is slot 0 and the valid range is 0 to `slotCount - 1`. Home Assistant slots are 1-based, and HA slot = API slot + 1, so Slot 1 is T0 and Slot 4 is T3. The mapping happens once, when the snapshot is parsed (`LoadedSpool.slot`, `PrintFilament.slot`); everything after that (entity names, unique ids, the rules below) uses HA slots. An action never sends a slot to the API; if one ever does, it sends HA slot - 1.
+- **How many:** HA slots run 1 to `max(slotCount, 1)`. Slot sensors are created for every slot number at setup, and again when `slotCount` grows (new entities are added on refresh).
+- **Unslotted spools:** a loaded spool with `slot = null` counts as HA slot 1 when `slotCount <= 1` and slot 1 is otherwise empty. In every other case, unslotted spools are listed in the `unslotted` attribute of `slot_1_filament`. A `filament` row of the current print with `slot = null` follows the same rule for `slot_1_filament_short`: it counts as slot 1 on a single-slot printer when no row is at slot 1.
 
 ### 5.2 Per-printer event entity
 

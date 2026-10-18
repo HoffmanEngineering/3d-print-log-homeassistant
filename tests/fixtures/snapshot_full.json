@@ -24,12 +24,12 @@
         "url": "https://3dprintlog.com/prints/9001",
         "filament": [
           {
-            "slot": 1,
+            "slot": 0,
             "spoolId": "11111111-1111-4111-8111-111111111111",
             "estimatedGrams": 18.5
           },
           {
-            "slot": 3,
+            "slot": 2,
             "spoolId": "33333333-3333-4333-8333-333333333333",
             "estimatedGrams": 4.25
           }
@@ -48,7 +48,7 @@
       },
       "loaded": [
         {
-          "slot": 1,
+          "slot": 0,
           "slotLabel": "T0",
           "spoolId": "11111111-1111-4111-8111-111111111111",
           "spoolNumber": 1,
@@ -61,7 +61,7 @@
           "remainingGrams": 742.5
         },
         {
-          "slot": 3,
+          "slot": 2,
           "slotLabel": "T2",
           "spoolId": "33333333-3333-4333-8333-333333333333",
           "spoolNumber": 3,
