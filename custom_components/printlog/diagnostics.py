@@ -34,7 +34,10 @@ TO_REDACT = {
 async def async_get_config_entry_diagnostics(
     hass: HomeAssistant, entry: ConfigEntry
 ) -> dict[str, Any]:
-    """Return diagnostics for a config entry, with names, titles, notes and URLs redacted."""
+    """Return diagnostics for a config entry, with names, titles, notes and URLs redacted.
+
+    The coordinator's last_error is kept as is and may include the server's error message.
+    """
     data = entry.runtime_data
     snapshot = data.snapshot.data
     # A JSON round trip turns tuples into lists and datetimes into strings,

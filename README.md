@@ -57,7 +57,7 @@ Each printer is a device. The account is a separate service device. Entity ids f
 | Last maintenance | sensor (timestamp) | Date of the newest completed maintenance | `category`, `description` |
 | Print | event | See [Events](#events) | the event payload |
 
-A printer has one set of slot entities per slot (a single-extruder printer has one). A spool loaded without a slot counts as slot 1 on a single-slot printer. Elsewhere it is listed in the `unslotted` attribute of Slot 1 filament.
+A printer has one set of slot entities per slot (a single-extruder printer has one). Slots are numbered from 1: Slot 1 is the first tool (T0, which 3D Print Log calls slot 0), Slot 2 is T1, and so on. A spool loaded without a slot counts as slot 1 on a single-slot printer. Elsewhere it is listed in the `unslotted` attribute of Slot 1 filament.
 
 ### Account
 
@@ -180,17 +180,17 @@ Events come from comparing snapshots, so they have limits. Webhooks for instant 
 - A print shorter than the update interval may fire only its finish event, without a start.
 - A start is announced only if Home Assistant sees it within 60 minutes of its start time.
 - A print that finished while Home Assistant was down fires on restart, once, if it was the current print or finished within the last 60 minutes. Older history is never announced, and neither is anything when you first add the integration or a new printer.
-- Home Assistant restores an event entity's last event after a restart, so the entity looks as if that event just happened. Trigger on `event_type` changes or on the bus events, not on a generic state change.
+- Home Assistant restores an event entity's last event after a restart. The restored state keeps its old timestamp, so it is not a new event. A reload takes the entity through `unavailable` and then restores it; the `not_from` guard in the example above is what stops that from firing the automation, so keep it in any state trigger on the event entity.
 - "Not enough filament" needs the running print's per-slot estimates, so it stays unknown for prints that have none.
 
 ## Privacy
 
 - The API key is sent only in a request header to the API URL you configured. It is never put in a URL, an entity id or a log line.
-- Diagnostics redact the API key, your display name, and all printer names, print titles, spool names, brands and color names, maintenance categories and descriptions, notes, storage locations and URLs, and a self-hosted API URL. Printer make and model, materials and time zone stay visible to help with support.
+- Diagnostics redact the API key, your display name, and all printer names, print titles, spool names, brands and color names, maintenance categories and descriptions, notes, storage locations and URLs, and a self-hosted API URL. The last update error is kept and may include the server's error message. Printer make and model, materials and time zone stay visible to help with support.
 
 ## Support
 
-Report problems at [github.com/HoffmanEngineering/3d-print-log-homeassistant/issues](https://github.com/HoffmanEngineering/3d-print-log-homeassistant/issues). Download the diagnostics from the integration's page and attach them. They contain no API key, names, titles, notes or URLs.
+Report problems at [github.com/HoffmanEngineering/3d-print-log-homeassistant/issues](https://github.com/HoffmanEngineering/3d-print-log-homeassistant/issues). Download the diagnostics from the integration's page and attach them. They contain no API key, names, titles or notes. The last update error may include the server's error message.
 
 ## License
 

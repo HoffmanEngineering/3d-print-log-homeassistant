@@ -1,8 +1,10 @@
 name: Release
 
+# Runs when a v* tag is pushed, so a tag that doesn't match manifest.json goes
+# red before a release is published from it.
 on:
-  release:
-    types: [published]
+  push:
+    tags: ["v*"]
 
 jobs:
   check-version:
