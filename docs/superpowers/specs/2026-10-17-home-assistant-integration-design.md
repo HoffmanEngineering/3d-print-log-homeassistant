@@ -270,7 +270,8 @@ The `source` and `url` attributes are None, and the event payload carries them a
 The store is `Store(hass, STORAGE_VERSION=1, f"printlog.{entry_id}.events", minor_version=1)`, with a migrate function. Per printer it holds:
 
 ```
-{ "seen": [print_id, ...]   # bounded to the 50 most recently added
+{ "seen": [print_id, ...]      # finished ids, bounded to the 50 most recently added
+  "started": [print_id, ...]   # ids already announced (or deliberately never announced) as started, same bound
   "current": print_id | null }
 ```
 
@@ -279,8 +280,8 @@ The store is loaded before the first refresh, saved after each diff that changes
 ### 6.2 `events.diff(prev, snapshot, now) -> (events, state)` (pure function)
 
 For each printer:
-1. **First time this printer is seen** (no state): seed `seen` with the `lastFinishedPrint.id`, if there is one, and set `current` to the `currentPrint.id`. Fire nothing. A fresh install or a new printer never announces history.
-2. **Started:** if `currentPrint` is set, its id differs from `prev.current`, and the id isn't in `seen`, fire `started`.
+1. **First time this printer is seen** (no state): seed `seen` with the `lastFinishedPrint.id`, if there is one, seed `started` with the `currentPrint.id`, if there is one, and set `current` to the `currentPrint.id`. Fire nothing. A fresh install or a new printer never announces history.
+2. **Started:** fire `started` only if `currentPrint` is set, its id differs from `prev.current`, the id isn't in `seen` or `started`, and its `startedAt` is missing or within the last 60 minutes of `now`. Add the id to `started` when it fires, and also when only the recency check suppressed it, so it can never fire later. This stops a stale Printing record that resurfaces as the newest one (after a newer print finishes), or a current-print flip A, B, A, from announcing a start.
 3. **Finished:** let `f = lastFinishedPrint`. Fire `f.status` (`success`, `failed`, `canceled` or `partial_success`) only if all of these hold:
    - `f` is set and `f.id` isn't in `seen`;
    - either `f.id == prev.current`, or the reference time is within the last 60 minutes of `now`. The reference time is `f.finishedAt`, or `f.startedAt` when there is no finish time.
@@ -293,6 +294,7 @@ The diff runs only on a successful 200 snapshot, never on errors or 304s. A prin
 **Accepted limits** (documented in the README; v1.1 webhooks fix them):
 - If two prints on the same printer finish between polls, only the one that is newest by start date is seen.
 - A print shorter than the poll interval may fire only its finish, without a start.
+- A start is announced only if Home Assistant sees it within 60 minutes of its start time.
 
 ### 6.3 Bus events
 

@@ -9,7 +9,6 @@ import pytest
 from custom_components.printlog.events import (
     BUS_EVENT,
     PrinterEventState,
-    PrintEvent,
     diff,
 )
 from custom_components.printlog.models import (
@@ -89,15 +88,15 @@ def _snap(*printers: Printer) -> Snapshot:
     )
 
 
-def _state(seen=(), current=None) -> PrinterEventState:
-    return PrinterEventState(seen=tuple(seen), current=current)
+def _state(seen=(), current=None, started=()) -> PrinterEventState:
+    return PrinterEventState(seen=tuple(seen), current=current, started=tuple(started))
 
 
 def test_first_sight_seeds_no_events():
     snap = _snap(_printer(current=_cur(5), finished=_fin(4)))
     events, state = diff({}, snap, NOW)
     assert events == []
-    assert state[1] == PrinterEventState(seen=(4,), current=5)
+    assert state[1] == PrinterEventState(seen=(4,), current=5, started=(5,))
 
 
 def test_first_sight_is_per_printer():
@@ -108,7 +107,7 @@ def test_first_sight_is_per_printer():
     )
     events, state = diff(prev, snap, NOW)
     assert events == []
-    assert state[2] == PrinterEventState(seen=(8,), current=9)
+    assert state[2] == PrinterEventState(seen=(8,), current=9, started=(9,))
 
 
 def test_started_fires_once():
@@ -147,7 +146,6 @@ def test_finish_of_previous_current_fires_status(status):
     assert events[0].finished_at == NOW - timedelta(hours=5)
     assert state[1].current is None
     assert 5 in state[1].seen
-    assert status in BUS_EVENT
 
 
 def test_bus_event_names():
@@ -240,8 +238,8 @@ def test_printer_removed_drops_state():
 
 
 def test_state_roundtrip():
-    s = PrinterEventState(seen=(1, 2, 3), current=3)
-    assert s.to_dict() == {"seen": [1, 2, 3], "current": 3}
+    s = PrinterEventState(seen=(1, 2, 3), current=3, started=(3,))
+    assert s.to_dict() == {"seen": [1, 2, 3], "started": [3], "current": 3}
     assert PrinterEventState.from_dict(s.to_dict()) == s
     assert PrinterEventState.from_dict({"seen": [], "current": None}) == PrinterEventState(
         seen=(), current=None
@@ -265,6 +263,83 @@ def test_finish_then_start_ordering():
     assert events2 == []
 
 
-def test_print_event_is_dataclass_with_fields():
-    e = PrintEvent(1, "P", "started", 2, None, None, None, None, None)
-    assert e.print_id == 2
+def test_from_dict_without_started_key():
+    s = PrinterEventState.from_dict({"seen": [1], "current": 2})
+    assert s == PrinterEventState(seen=(1,), current=2, started=())
+    full = PrinterEventState(seen=(1,), current=2, started=(2, 3))
+    assert PrinterEventState.from_dict(full.to_dict()) == full
+
+
+def test_stale_printing_record_resurfaces_no_started():
+    # B runs and shadows a stale Printing record A; B finishes, A resurfaces.
+    a = _cur(1, started=NOW - timedelta(days=4))
+    prev = {1: _state(seen=(), current=2, started=(2,))}
+    snap = _snap(_printer(current=a, finished=_fin(2)))
+    events, state = diff(prev, snap, NOW)
+    assert [(e.status, e.print_id) for e in events] == [("success", 2)]
+    assert state[1].current == 1
+    assert 1 in state[1].started
+    # Later polls never announce A either.
+    events2, _ = diff(state, snap, NOW + timedelta(hours=3))
+    assert events2 == []
+
+
+def test_current_flicker_refires_no_started():
+    a, b = _cur(1), _cur(2)
+    state = {1: _state(seen=(9,), current=None)}
+    fired = []
+    for cur in (a, b, a, b, a):
+        events, state = diff(state, _snap(_printer(current=cur)), NOW)
+        fired += [(e.status, e.print_id) for e in events]
+    assert fired == [("started", 1), ("started", 2)]
+
+
+def test_started_recency_boundary_inclusive():
+    prev = {1: _state(seen=(9,))}
+    edge = _cur(5, started=NOW - timedelta(minutes=60))
+    events, _ = diff(prev, _snap(_printer(current=edge)), NOW)
+    assert [e.print_id for e in events] == [5]
+
+    late = _cur(6, started=NOW - timedelta(minutes=60, seconds=1))
+    events, state = diff(prev, _snap(_printer(current=late)), NOW)
+    assert events == []
+    assert 6 in state[1].started
+
+
+def test_started_without_started_at_fires():
+    prev = {1: _state(seen=(9,))}
+    cur = _cur(5)
+    cur = CurrentPrint(**{**{f: getattr(cur, f) for f in cur.__slots__}, "started_at": None})
+    events, _ = diff(prev, _snap(_printer(current=cur)), NOW)
+    assert [e.print_id for e in events] == [5]
+
+
+def test_started_eviction_then_resurface():
+    # Once id 1 is evicted from the bounded list it can be announced again.
+    prev = {1: _state(seen=(9,), current=None, started=tuple(range(1, 51)))}
+    state = prev
+    events, state = diff(state, _snap(_printer(current=_cur(100))), NOW)
+    assert [e.print_id for e in events] == [100]
+    assert len(state[1].started) == 50
+    assert 1 not in state[1].started
+    # Current moves away, then id 1 (evicted) is current again and recent.
+    _, state = diff(state, _snap(_printer()), NOW)
+    events, _ = diff(state, _snap(_printer(current=_cur(1))), NOW)
+    assert [e.print_id for e in events] == [1]
+
+
+def test_old_previous_current_finish_and_new_start_same_poll():
+    prev = {1: _state(seen=(4,), current=5, started=(5,))}
+    snap = _snap(
+        _printer(
+            current=_cur(6),
+            finished=_fin(5, finished_ago=timedelta(hours=3)),
+        )
+    )
+    events, _ = diff(prev, snap, NOW)
+    assert [(e.status, e.print_id) for e in events] == [("success", 5), ("started", 6)]
+
+
+def test_naive_now_raises():
+    with pytest.raises(ValueError):
+        diff({}, _snap(_printer()), datetime(2026, 10, 17, 12, 0))

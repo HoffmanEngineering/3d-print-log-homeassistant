@@ -26,13 +26,22 @@ class PrinterEventState:
 
     seen: tuple[int, ...]
     current: int | None
+    started: tuple[int, ...] = ()
 
     def to_dict(self) -> dict:
-        return {"seen": list(self.seen), "current": self.current}
+        return {
+            "seen": list(self.seen),
+            "started": list(self.started),
+            "current": self.current,
+        }
 
     @classmethod
     def from_dict(cls, d: dict) -> PrinterEventState:
-        return cls(seen=tuple(d.get("seen") or ()), current=d.get("current"))
+        return cls(
+            seen=tuple(d.get("seen") or ()),
+            current=d.get("current"),
+            started=tuple(d.get("started") or ()),
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,6 +69,8 @@ def diff(
     prev: dict[int, PrinterEventState], snapshot: Snapshot, now: datetime
 ) -> tuple[list[PrintEvent], dict[int, PrinterEventState]]:
     """Return the events for this snapshot and the new state map."""
+    if now.tzinfo is None:
+        raise ValueError("now must be timezone-aware")
     window = timedelta(minutes=EVENT_WINDOW_MINUTES)
     events: list[PrintEvent] = []
     state: dict[int, PrinterEventState] = {}
@@ -72,25 +83,34 @@ def diff(
 
         if before is None:
             seen = _add_seen((), fin.id) if fin else ()
-            state[printer.id] = PrinterEventState(seen=seen, current=cur_id)
+            started_ids = _add_seen((), cur_id) if cur_id is not None else ()
+            state[printer.id] = PrinterEventState(seen=seen, current=cur_id, started=started_ids)
             continue
 
         seen = before.seen
+        started_ids = before.started
         started: PrintEvent | None = None
         finished: PrintEvent | None = None
 
-        if cur is not None and cur.id != before.current and cur.id not in seen:
-            started = PrintEvent(
-                printer_id=printer.id,
-                printer_name=printer.display_name,
-                status="started",
-                print_id=cur.id,
-                title=cur.title,
-                started_at=cur.started_at,
-                finished_at=None,
-                source=cur.source,
-                url=cur.url,
-            )
+        if (
+            cur is not None
+            and cur.id != before.current
+            and cur.id not in seen
+            and cur.id not in started_ids
+        ):
+            started_ids = _add_seen(started_ids, cur.id)
+            if cur.started_at is None or now - cur.started_at <= window:
+                started = PrintEvent(
+                    printer_id=printer.id,
+                    printer_name=printer.display_name,
+                    status="started",
+                    print_id=cur.id,
+                    title=cur.title,
+                    started_at=cur.started_at,
+                    finished_at=None,
+                    source=cur.source,
+                    url=cur.url,
+                )
 
         if fin is not None and fin.id not in seen:
             reference = fin.finished_at or fin.started_at
@@ -114,6 +134,6 @@ def diff(
             events.append(finished)
         if started:
             events.append(started)
-        state[printer.id] = PrinterEventState(seen=seen, current=cur_id)
+        state[printer.id] = PrinterEventState(seen=seen, current=cur_id, started=started_ids)
 
     return events, state
