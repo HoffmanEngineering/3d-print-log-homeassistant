@@ -7,14 +7,15 @@ fields added after API v1.17 parse to None (or an empty tuple) when absent.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 
 def _dt(value: Any) -> datetime | None:
     if not value:
         return None
-    return datetime.fromisoformat(value)
+    dt = datetime.fromisoformat(value)
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
 
 
 def _strs(value: Any) -> tuple[str, ...]:
@@ -135,7 +136,7 @@ class LoadedSpool:
 class Maintenance:
     """A printer's most recent maintenance entry."""
 
-    id: int
+    id: str
     date: datetime | None
     category: str | None
     description: str | None
@@ -185,7 +186,7 @@ class Printer:
     def from_json(cls, d: dict) -> Printer:
         def opt(key: str, model: Any) -> Any:
             value = d.get(key)
-            return model.from_json(value) if value else None
+            return model.from_json(value) if value is not None else None
 
         return cls(
             id=d["id"],

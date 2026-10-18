@@ -32,7 +32,7 @@ def test_parse_full():
     assert p.print_time_seconds == 432000
     assert (p.connection.kind, p.connection.status) == ("moonraker", "online")
     assert p.last_finished_print is None
-    assert p.last_maintenance.id == 501
+    assert p.last_maintenance.id == "66666666-6666-4666-8666-666666666666"
     assert p.last_maintenance.date == datetime(2026, 9, 30, tzinfo=UTC)
     assert p.last_maintenance.category == "Lubrication"
     assert p.last_maintenance.description == "Oiled the rails"
@@ -182,3 +182,27 @@ def test_z_suffix_parses_aware():
     data["printers"][0]["currentPrint"]["startedAt"] = "2026-10-17T14:00:00Z"
     cp = Snapshot.from_json(data).printers[0].current_print
     assert cp.started_at.tzinfo is not None
+
+
+def test_naive_timestamp_treated_as_utc():
+    data = load("snapshot_full.json")
+    data["printers"][0]["currentPrint"]["startedAt"] = "2026-10-17T14:00:00"
+    cp = Snapshot.from_json(data).printers[0].current_print
+    assert cp.started_at == datetime(2026, 10, 17, 14, 0, tzinfo=UTC)
+
+
+def test_seven_digit_fraction_parses():
+    data = load("snapshot_full.json")
+    data["printers"][0]["currentPrint"]["startedAt"] = "2026-10-17T14:00:00.1234567+00:00"
+    cp = Snapshot.from_json(data).printers[0].current_print
+    assert cp.started_at.year == 2026
+    assert cp.started_at.microsecond == 123456
+    assert cp.started_at.tzinfo is not None
+
+
+def test_empty_object_is_not_none():
+    data = load("snapshot_full.json")
+    data["printers"][0]["connection"] = {"kind": "moonraker", "status": "online"}
+    data["printers"][0]["openMaintenance"] = {"count": 0}
+    om = Snapshot.from_json(data).printers[0].open_maintenance
+    assert om is not None and om.count == 0 and om.next_date is None
