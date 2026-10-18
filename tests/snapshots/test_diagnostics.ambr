@@ -84,7 +84,7 @@
           'id': 101,
           'last_finished_print': None,
           'last_maintenance': dict({
-            'category': 'Lubrication',
+            'category': '**REDACTED**',
             'date': '2026-09-30 00:00:00+00:00',
             'description': '**REDACTED**',
             'id': '66666666-6666-4666-8666-666666666666',
@@ -185,10 +185,10 @@
       'spools': list([
         dict({
           'active': True,
-          'brand': 'Prusament',
-          'category': 'filament',
+          'brand': '**REDACTED**',
+          'category': '**REDACTED**',
           'color_hex': '#1A1A1A',
-          'color_name': 'Black',
+          'color_name': '**REDACTED**',
           'colors': list([
             '#1A1A1A',
           ]),
@@ -203,10 +203,10 @@
         }),
         dict({
           'active': True,
-          'brand': 'Polymaker',
-          'category': 'filament',
+          'brand': '**REDACTED**',
+          'category': '**REDACTED**',
           'color_hex': '#D32F2F',
-          'color_name': 'Red',
+          'color_name': '**REDACTED**',
           'colors': list([
             '#D32F2F',
           ]),
@@ -221,10 +221,10 @@
         }),
         dict({
           'active': True,
-          'brand': 'Eryone',
-          'category': 'filament',
+          'brand': '**REDACTED**',
+          'category': '**REDACTED**',
           'color_hex': '#FF0000',
-          'color_name': 'Rainbow',
+          'color_name': '**REDACTED**',
           'colors': list([
             '#FF0000',
             '#00FF00',
@@ -241,10 +241,10 @@
         }),
         dict({
           'active': True,
-          'brand': 'Generic',
-          'category': 'filament',
+          'brand': '**REDACTED**',
+          'category': '**REDACTED**',
           'color_hex': '#9E9E9E',
-          'color_name': 'Gray',
+          'color_name': '**REDACTED**',
           'colors': list([
             '#9E9E9E',
           ]),
@@ -260,7 +260,7 @@
         dict({
           'active': False,
           'brand': None,
-          'category': 'resin',
+          'category': '**REDACTED**',
           'color_hex': None,
           'color_name': None,
           'colors': list([

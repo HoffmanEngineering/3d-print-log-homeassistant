@@ -36,8 +36,42 @@ async def test_diagnostics_redacts(hass: HomeAssistant, aioclient_mock, snapshot
     result = await async_get_config_entry_diagnostics(hass, entry)
 
     dumped = json.dumps(result, default=str)
-    for secret in (API_KEY, "Benchy", "Phone stand", "Snapmaker U1", "Galaxy Black", "Chris"):
+    for secret in (
+        API_KEY,
+        "Benchy",
+        "Phone stand",
+        "Snapmaker U1",
+        "Galaxy Black",
+        "Chris",
+        "Lubrication",
+        "Shelf A",
+        "Shelf B",
+    ):
         assert secret not in dumped
     assert result["entry"]["data"]["api_key"] == "**REDACTED**"
     assert result["entry"]["options"] == {"scan_interval": 45}
     assert result == snapshot
+
+
+async def test_diagnostics_redacts_self_hosted_url(hass: HomeAssistant, aioclient_mock) -> None:
+    host = "https://printlog.example-home.net"
+    aioclient_mock.get(f"{host}/api/sync/version", json={"version": "v1"})
+    aioclient_mock.get(
+        f"{host}/api/sync/snapshot", json=json.loads(SNAPSHOT.read_text(encoding="utf-8"))
+    )
+    aioclient_mock.get(f"{host}/api/Notifications/unread-count", json={"count": 0})
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Chris",
+        unique_id="printlog.example-home.net:42",
+        version=1,
+        minor_version=1,
+        data={"base_url": host, "auth_type": "api_key", "api_key": API_KEY},
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+
+    result = await async_get_config_entry_diagnostics(hass, entry)
+
+    assert "example-home" not in json.dumps(result, default=str)
+    assert result["entry"]["data"]["base_url"] == "**REDACTED**"

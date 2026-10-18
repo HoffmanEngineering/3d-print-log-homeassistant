@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Connect to 3D Print Log",
-        "description": "Create a dedicated API key named \"Home Assistant\" under Settings → API keys in 3D Print Log, then paste it here.",
+        "description": "In 3D Print Log, open Personal API Keys from your profile picture (top right), create a new key with the description Home Assistant, then paste it here. The key is shown only once.",
         "data": {
           "base_url": "API URL",
           "api_key": "API key"
@@ -15,7 +15,7 @@
       },
       "reauth_confirm": {
         "title": "Reauthenticate 3D Print Log",
-        "description": "The API key was rejected. Create a new key named \"Home Assistant\" under Settings → API keys in 3D Print Log, then paste it here. It must belong to the same account.",
+        "description": "The API key was rejected. In 3D Print Log, open Personal API Keys from your profile picture (top right), create a new key with the description Home Assistant, then paste it here. It must belong to the same account.",
         "data": {
           "api_key": "API key"
         },
@@ -25,7 +25,7 @@
       },
       "reconfigure": {
         "title": "Reconfigure 3D Print Log",
-        "description": "Change the API URL or the API key. The new values must belong to the same account. Create keys under Settings → API keys in 3D Print Log.",
+        "description": "Change the API URL or the API key. The new values must belong to the same account. Create keys under Personal API Keys in 3D Print Log (profile picture, top right).",
         "data": {
           "base_url": "API URL",
           "api_key": "API key"

@@ -26,7 +26,7 @@ This integration deliberately creates no per-spool entities, so the two can run 
 1. In HACS, open the menu and choose **Custom repositories**.
 2. Add `https://github.com/HoffmanEngineering/3d-print-log-homeassistant` with the category **Integration**.
 3. Download **3D Print Log** and restart Home Assistant.
-4. In 3D Print Log, open **Settings** and create an API key named **Home Assistant**. Copy it.
+4. In 3D Print Log, open **Personal API Keys** from your profile picture (top right), click **Create new API Key**, enter the description **Home Assistant** and submit. Copy the key. It is shown only once.
 5. In Home Assistant, go to **Settings > Devices & services > Add integration**, choose **3D Print Log** and paste the key. Leave the API URL at its default unless you run your own API.
 
 Use a dedicated key. You can revoke it in 3D Print Log at any time without affecting anything else. If the key is rejected later, Home Assistant starts a reauthentication flow.
@@ -98,21 +98,7 @@ The bus event payload (version 1; new keys may be added later, existing ones wil
 
 `finished_at` is null for `started`. `source` and `url` are null on an older API. The event entity carries the same payload without `device_id`.
 
-Automation on the event entity:
-
-```yaml
-triggers:
-  - trigger: state
-    entity_id: event.snapmaker_u1_print
-    attribute: event_type
-    to: failed
-actions:
-  - action: notify.mobile_app_phone
-    data:
-      message: "{{ trigger.to_state.attributes.title }} failed on {{ trigger.to_state.attributes.printer_name }}"
-```
-
-Automation on the bus event:
+Automation on the bus event (the most reliable way):
 
 ```yaml
 triggers:
@@ -126,13 +112,31 @@ actions:
       message: "{{ trigger.event.data.title }} is done"
 ```
 
+Automation on the event entity. The entity's state is the time of its last event, so it changes on every event, even two failures in a row. Trigger on the state change and check `event_type` in a condition:
+
+```yaml
+triggers:
+  - trigger: state
+    entity_id: event.snapmaker_u1_print
+    not_from:
+      - unavailable
+      - unknown
+conditions:
+  - condition: template
+    value_template: "{{ trigger.to_state.attributes.event_type == 'failed' }}"
+actions:
+  - action: notify.mobile_app_phone
+    data:
+      message: "{{ trigger.to_state.attributes.title }} failed on {{ trigger.to_state.attributes.printer_name }}"
+```
+
 ## Actions
 
 Each action takes an optional `config_entry_id`. It is required only when you have more than one 3D Print Log account set up.
 
 ### `printlog.adjust_remaining`
 
-Adds to or removes from a spool's remaining amount. Choose the spool with exactly one of `entity_id` (a slot filament or slot remaining sensor), `spool_id` or `spool_number`. A positive `amount` adds and a negative one removes. `unit` is `g` (default), `mm` or `ml`. `notes` is optional. It returns `before_grams` and `after_grams`.
+Adds to or removes from a spool's remaining amount. Choose the spool with exactly one of `entity_id` (a slot filament or slot remaining sensor), `spool_id` or `spool_number`. A positive `amount` adds and a negative one removes. It can't be zero. `notes` is optional, up to 1000 characters. `unit` is `g` (default), `mm` or `ml`. It returns `before_grams` and `after_grams`.
 
 ```yaml
 action: printlog.adjust_remaining
@@ -157,7 +161,7 @@ data:
 
 ### `printlog.log_maintenance`
 
-Records a completed maintenance entry on a printer. `device_id` and `description` are required. `category`, `notes` and `date` (default: now) are optional. It returns `maintenance_id`.
+Records a completed maintenance entry on a printer. `device_id` and `description` are required. `category`, `notes` and `date` (default: now) are optional. It returns `maintenance_id`. The `maintenance_id` field is reserved for a later release and is rejected if you set it.
 
 ```yaml
 action: printlog.log_maintenance
@@ -182,11 +186,11 @@ Events come from comparing snapshots, so they have limits. Webhooks for instant 
 ## Privacy
 
 - The API key is sent only in a request header to the API URL you configured. It is never put in a URL, an entity id or a log line.
-- Diagnostics redact the API key, your display name, and all printer names, print titles, spool names, descriptions, notes, storage locations and URLs.
+- Diagnostics redact the API key, your display name, and all printer names, print titles, spool names, brands and color names, maintenance categories and descriptions, notes, storage locations and URLs, and a self-hosted API URL. Printer make and model, materials and time zone stay visible to help with support.
 
 ## Support
 
-Report problems at [github.com/HoffmanEngineering/3d-print-log-homeassistant/issues](https://github.com/HoffmanEngineering/3d-print-log-homeassistant/issues). Download the diagnostics from the integration's page and attach them. They are safe to share.
+Report problems at [github.com/HoffmanEngineering/3d-print-log-homeassistant/issues](https://github.com/HoffmanEngineering/3d-print-log-homeassistant/issues). Download the diagnostics from the integration's page and attach them. They contain no API key, names, titles, notes or URLs.
 
 ## License
 
