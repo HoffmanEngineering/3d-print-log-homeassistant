@@ -17,8 +17,8 @@ from .store import EventStore
 
 _LOGGER = logging.getLogger(__name__)
 
-# Later tasks add their platforms here (sensor, binary_sensor, event).
-PLATFORMS: list[Platform] = []
+# Later tasks add their platforms here (event).
+PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR]
 
 type PrintLogConfigEntry = ConfigEntry[PrintLogData]
 

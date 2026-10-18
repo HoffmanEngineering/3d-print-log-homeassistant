@@ -49,6 +49,63 @@
       "wrong_account": "That API key or URL belongs to a different account. Use one for the account you originally set up."
     }
   },
+  "entity": {
+    "sensor": {
+      "current_print": {
+        "name": "Current print"
+      },
+      "print_started": {
+        "name": "Print started"
+      },
+      "print_estimated_end": {
+        "name": "Print estimated end"
+      },
+      "last_print_result": {
+        "name": "Last print result",
+        "state": {
+          "success": "Success",
+          "failed": "Failed",
+          "canceled": "Canceled",
+          "partial_success": "Partial success"
+        }
+      },
+      "slot_filament": {
+        "name": "Slot {slot} filament"
+      },
+      "slot_remaining": {
+        "name": "Slot {slot} remaining"
+      },
+      "print_time": {
+        "name": "Print time"
+      },
+      "last_maintenance": {
+        "name": "Last maintenance"
+      },
+      "prints_this_month": {
+        "name": "Prints this month"
+      },
+      "grams_this_month": {
+        "name": "Grams this month"
+      },
+      "unread_notifications": {
+        "name": "Unread notifications"
+      }
+    },
+    "binary_sensor": {
+      "connection": {
+        "name": "Connection"
+      },
+      "printing": {
+        "name": "Printing"
+      },
+      "maintenance_due": {
+        "name": "Maintenance due"
+      },
+      "slot_filament_short": {
+        "name": "Slot {slot} not enough filament"
+      }
+    }
+  },
   "issues": {
     "unsupported_schema": {
       "title": "Update the 3D Print Log integration",

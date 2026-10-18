@@ -52,6 +52,7 @@ class FakeApi:
         self.snapshot_status = 200
         self.snapshot_etag = '"s1"'
         self.unread_status = 200
+        self.unread_body = {"unreadCount": 3, "unreadAchievementCount": 1}
         self.retry_after: str | None = None
         self.snapshot_gate: asyncio.Event | None = None
         self.snapshot_entered = asyncio.Event()
@@ -85,7 +86,7 @@ class FakeApi:
     async def _unread(self, method, url, data):
         if self.unread_status != 200:
             return self._error(method, url, self.unread_status)
-        return self._resp(method, url, 200, {"count": 3})
+        return self._resp(method, url, 200, self.unread_body)
 
     def calls(self, url: str) -> list[tuple]:
         return [c for c in self.mock.mock_calls if str(c[1]).split("?")[0] == url]
@@ -164,7 +165,7 @@ async def test_first_refresh_fetches_snapshot(hass: HomeAssistant, api: FakeApi)
     assert data.snapshot.entry_uid == UID
     assert data.snapshot.data.version == "v1"
     assert {p.id for p in data.snapshot.data.printers} == {101, 102}
-    assert data.slow.data == {"count": 3}
+    assert data.slow.data == {"unreadCount": 3, "unreadAchievementCount": 1}
     assert len(api.calls(VERSION_URL)) == 1
     assert len(api.calls(SNAPSHOT_URL)) == 1
 
@@ -443,7 +444,7 @@ async def test_slow_failure_isolated(hass: HomeAssistant, api: FakeApi) -> None:
     api.unread_status = 200
     await data.slow.async_refresh()
     assert data.slow.last_update_success
-    assert data.slow.data == {"count": 3}
+    assert data.slow.data == {"unreadCount": 3, "unreadAchievementCount": 1}
 
 
 # --- Stale devices -------------------------------------------------------------
