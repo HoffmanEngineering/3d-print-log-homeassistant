@@ -11,6 +11,7 @@ from homeassistant.helpers import device_registry as dr
 from pytest_homeassistant_custom_component.common import async_capture_events
 
 from custom_components.printlog.const import DOMAIN
+from custom_components.printlog.events import PrintEvent
 
 from .test_coordinator import (  # noqa: F401
     NOW,
@@ -209,6 +210,7 @@ async def test_finish_while_down_within_window_fires_once(
     assert entry.state is ConfigEntryState.LOADED
     assert len(finished) == 1
     assert finished[0].data["print_id"] == 9001
+    assert finished[0].data["device_id"] == printer_device_id(hass, entry.entry_id, 101)
     state = hass.states.get(entity_id(hass, "event", "printer:101:print"))
     assert state.attributes["event_type"] == "success"
     assert state.attributes["print_id"] == 9001
@@ -232,3 +234,65 @@ async def test_unknown_device_gives_null_device_id(
     await entry.runtime_data.snapshot.async_refresh()
     await hass.async_block_till_done()
     assert started[0].data["device_id"] is None
+
+
+def finish_and_start_101(snapshot: dict) -> None:
+    finish_101(snapshot)
+    printer = next(p for p in snapshot["printers"] if p["id"] == 101)
+    printer["currentPrint"] = {
+        "id": 9200,
+        "title": "Cube",
+        "startedAt": "2026-10-17T14:55:00+00:00",
+        "source": "moonraker",
+        "url": "https://3dprintlog.com/prints/9200",
+        "filament": [],
+    }
+
+
+async def test_finish_and_start_in_one_pass_both_written(
+    hass: HomeAssistant,
+    api: FakeApi,  # noqa: F811
+) -> None:
+    entry = await setup_entry(hass)
+    eid = entity_id(hass, "event", "printer:101:print")
+    changes = async_capture_events(hass, "state_changed")
+    api.set_change("v2", '"s2"', finish_and_start_101)
+    await entry.runtime_data.snapshot.async_refresh()
+    await hass.async_block_till_done()
+    types = [
+        e.data["new_state"].attributes["event_type"]
+        for e in changes
+        if e.data["entity_id"] == eid and "event_type" in e.data["new_state"].attributes
+    ]
+    assert types == ["success", "started"]
+    assert hass.states.get(eid).attributes["event_type"] == "started"
+
+
+async def test_bad_event_does_not_abort_batch(
+    hass: HomeAssistant,
+    api: FakeApi,  # noqa: F811
+) -> None:
+    entry = await setup_entry(hass)
+    coordinator = entry.runtime_data.snapshot
+    started = async_capture_events(hass, STARTED)
+    good = PrintEvent(102, "P", "started", 1, "t", None, None, None, None)
+    bad = PrintEvent(102, "P", "bogus", 2, "t", None, None, None, None)
+    coordinator._dispatch([bad, good])
+    await hass.async_block_till_done()
+    assert [e.data["print_id"] for e in started] == [1]
+    state = hass.states.get(entity_id(hass, "event", "printer:102:print"))
+    assert state.attributes["print_id"] == 1
+
+
+async def test_bus_listener_removed_on_unload(
+    hass: HomeAssistant,
+    api: FakeApi,  # noqa: F811
+) -> None:
+    entry = await setup_entry(hass)
+    started = async_capture_events(hass, STARTED)
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    api.set_change("v2", '"s2"', start_102)
+    await entry.runtime_data.snapshot.async_refresh()
+    await hass.async_block_till_done()
+    assert len(started) == 1

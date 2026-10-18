@@ -63,13 +63,16 @@ def _fire_bus_events(
     registry = dr.async_get(hass)
     uid = entry.runtime_data.snapshot.entry_uid
     for event in events:
-        device = registry.async_get_device_by_identifier(
-            (DOMAIN, f"{uid}:printer:{event.printer_id}"), entry.entry_id
-        )
-        device_id = device.id if device is not None else None
-        hass.bus.async_fire(
-            BUS_EVENT[event.status], events_payload(event, entry.entry_id, device_id)
-        )
+        try:
+            device = registry.async_get_device_by_identifier(
+                (DOMAIN, f"{uid}:printer:{event.printer_id}"), entry.entry_id
+            )
+            device_id = device.id if device is not None else None
+            hass.bus.async_fire(
+                BUS_EVENT[event.status], events_payload(event, entry.entry_id, device_id)
+            )
+        except Exception:
+            _LOGGER.exception("Could not fire print event %s", event)
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: PrintLogConfigEntry) -> None:

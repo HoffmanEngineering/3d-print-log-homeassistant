@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from functools import partial
 
 from homeassistant.components.event import EventEntity, EventEntityDescription
@@ -13,6 +14,8 @@ from .coordinator import SnapshotCoordinator
 from .entity import EntitySpec, PrintLogPrinterEntity, async_add_printer_entities
 from .events import EVENT_TYPES, PrintEvent, events_payload
 from .models import Printer
+
+_LOGGER = logging.getLogger(__package__)
 
 PARALLEL_UPDATES = 0
 
@@ -49,13 +52,15 @@ class PrintEventEntity(PrintLogPrinterEntity, EventEntity):
 
     @callback
     def _handle_events(self, events: list[PrintEvent]) -> None:
-        wrote = False
         for event in events:
             if event.printer_id != self.printer_id:
                 continue
-            data = events_payload(event, self.coordinator.config_entry.entry_id, None)
-            del data["device_id"]
-            self._trigger_event(event.status, data)
-            wrote = True
-        if wrote:
-            self.async_write_ha_state()
+            try:
+                data = events_payload(event, self.coordinator.config_entry.entry_id, None)
+                data = {k: v for k, v in data.items() if k != "device_id"}
+                self._trigger_event(event.status, data)
+                # Once per event, so a finish and a start in one pass both reach
+                # the state machine.
+                self.async_write_ha_state()
+            except Exception:
+                _LOGGER.exception("Could not record print event %s", event)
