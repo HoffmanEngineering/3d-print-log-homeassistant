@@ -49,6 +49,12 @@
       "wrong_account": "That API key or URL belongs to a different account. Use one for the account you originally set up."
     }
   },
+  "issues": {
+    "unsupported_schema": {
+      "title": "Update the 3D Print Log integration",
+      "description": "The 3D Print Log API for {title} sends data in schema version {schema_version}, but this version of the integration reads only version {supported_version}. Update the integration (in HACS) to keep receiving updates. Until then, its entities show the last data received."
+    }
+  },
   "options": {
     "step": {
       "init": {

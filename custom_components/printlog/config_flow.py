@@ -27,6 +27,7 @@ from .api import (
 )
 from .const import (
     AUTH_TYPE_API_KEY,
+    CONF_API_KEY,
     CONF_AUTH_TYPE,
     CONF_BASE_URL,
     CONF_SCAN_INTERVAL,
@@ -39,7 +40,6 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
-CONF_API_KEY = "api_key"
 DEFAULT_TITLE = "3D Print Log"
 
 KEY_SELECTOR = TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD))

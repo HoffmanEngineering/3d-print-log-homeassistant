@@ -13,7 +13,10 @@ from custom_components.printlog.const import DOMAIN
 
 MANIFEST = Path(__file__).parent.parent / "custom_components" / "printlog" / "manifest.json"
 BASE = "https://api.3dprintlog.com"
-ME_URL = f"{BASE}/api/Users/me"
+VERSION_URL = f"{BASE}/api/sync/version"
+SNAPSHOT_URL = f"{BASE}/api/sync/snapshot"
+UNREAD_URL = f"{BASE}/api/Notifications/unread-count"
+SNAPSHOT = Path(__file__).parent / "fixtures" / "snapshot_full.json"
 
 
 def make_entry(**kwargs) -> MockConfigEntry:
@@ -36,18 +39,21 @@ def test_manifest_matches_const():
 
 
 async def test_setup_and_unload(hass: HomeAssistant, aioclient_mock) -> None:
-    aioclient_mock.get(ME_URL, json={"id": 42, "displayName": "Chris"})
+    aioclient_mock.get(VERSION_URL, json={"version": "v1"})
+    aioclient_mock.get(SNAPSHOT_URL, json=json.loads(SNAPSHOT.read_text(encoding="utf-8")))
+    aioclient_mock.get(UNREAD_URL, json={"count": 0})
     entry = make_entry()
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
     assert entry.state is ConfigEntryState.LOADED
     assert entry.runtime_data.client is not None
+    assert entry.runtime_data.snapshot.data is not None
     assert await hass.config_entries.async_unload(entry.entry_id)
     assert entry.state is ConfigEntryState.NOT_LOADED
 
 
 async def test_setup_auth_failure_starts_reauth(hass: HomeAssistant, aioclient_mock) -> None:
-    aioclient_mock.get(ME_URL, status=401)
+    aioclient_mock.get(VERSION_URL, status=401)
     entry = make_entry()
     entry.add_to_hass(hass)
     assert not await hass.config_entries.async_setup(entry.entry_id)
@@ -57,7 +63,7 @@ async def test_setup_auth_failure_starts_reauth(hass: HomeAssistant, aioclient_m
 
 
 async def test_setup_connection_failure_retries(hass: HomeAssistant, aioclient_mock) -> None:
-    aioclient_mock.get(ME_URL, status=503)
+    aioclient_mock.get(VERSION_URL, status=503)
     entry = make_entry()
     entry.add_to_hass(hass)
     assert not await hass.config_entries.async_setup(entry.entry_id)
