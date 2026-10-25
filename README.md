@@ -23,14 +23,23 @@ This integration deliberately creates no per-spool entities, so the two can run 
 
 ## Installation
 
-1. In HACS, open the menu (top right) and choose **Custom repositories**.
-2. Enter `https://github.com/HoffmanEngineering/3d-print-log-homeassistant`, choose the type **Integration**, click **Add** and close the dialog. This only adds the repository to HACS. Nothing is installed yet.
-3. Search HACS for **3D Print Log** and open it. Click **Download** (bottom right), then **Download** again in the dialog.
-4. Restart Home Assistant (**Settings > System**, then the power button at the top right). The integration can be added only after the restart.
-5. In 3D Print Log, open **Personal API Keys** from your profile picture (top right), click **Create new API Key**, enter the description **Home Assistant** and submit. Copy the key. It is shown only once.
-6. In Home Assistant, go to **Settings > Devices & services > Add integration**, choose **3D Print Log** and paste the key. Leave the API URL at its default unless you run your own API.
+[![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=HoffmanEngineering&repository=3d-print-log-homeassistant&category=integration)
+
+1. In HACS, search for **3D Print Log** and open it (or use the button above). Click **Download** (bottom right), then **Download** again in the dialog.
+2. Restart Home Assistant (**Settings > System**, then the power button at the top right). The integration can be added only after the restart.
+3. In 3D Print Log, open **Personal API Keys** from your profile picture (top right), click **Create new API Key**, enter the description **Home Assistant** and submit. Copy the key. It is shown only once.
+4. In Home Assistant, go to **Settings > Devices & services > Add integration**, choose **3D Print Log** and paste the key. Leave the API URL at its default unless you run your own API.
 
 Use a dedicated key. You can revoke it in 3D Print Log at any time without affecting anything else. If the key is rejected later, Home Assistant starts a reauthentication flow.
+
+### If HACS doesn't find it
+
+3D Print Log is in the HACS default list. If a search doesn't show it (an older HACS, or a list that hasn't refreshed yet), add the repository by hand, then continue from step 1:
+
+1. In HACS, open the menu (top right) and choose **Custom repositories**.
+2. Enter `https://github.com/HoffmanEngineering/3d-print-log-homeassistant`, choose the type **Integration**, click **Add** and close the dialog. This only adds the repository to HACS. Nothing is installed yet.
+
+If you added it as a custom repository before it joined the default list, you don't need to change anything. HACS keeps updating it either way.
 
 ### Options
 
